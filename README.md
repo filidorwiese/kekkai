@@ -67,4 +67,8 @@ firewall:
 
 mounts:
   - { source: ~/.aws, target: /home/kekkai/.aws, readonly: true, optional: true }
+
+# Mount the host docker socket so Claude can run `docker` inside the sandbox.
+# Off by default — enabling effectively grants host-root via the daemon.
+docker_access: true
 ```

@@ -46,6 +46,14 @@ RUN ARCH=$(dpkg --print-architecture) && \
   dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
+ARG DOCKER_CLI_VERSION={{.DockerCliVersion}}
+RUN ARCH=$(uname -m) && \
+  wget -q -O /tmp/docker.tgz "https://download.docker.com/linux/static/stable/${ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" && \
+  tar -xzf /tmp/docker.tgz -C /tmp docker/docker && \
+  mv /tmp/docker/docker /usr/local/bin/docker && \
+  chmod +x /usr/local/bin/docker && \
+  rm -rf /tmp/docker /tmp/docker.tgz
+
 USER kekkai
 
 ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global

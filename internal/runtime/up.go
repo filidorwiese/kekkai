@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"syscall"
 
 	"github.com/filidorwiese/kekkai/internal/config"
 	"github.com/filidorwiese/kekkai/internal/docker"
@@ -61,11 +63,35 @@ func Up(cwd string, opts UpOptions) (int, error) {
 		return 0, fmt.Errorf("render firewall.conf: %w", err)
 	}
 
-	args := buildRunArgs(cfg, cwd, name, tag, imgHash, fwConfPath, opts)
+	args, err := buildRunArgs(cfg, cwd, name, tag, imgHash, fwConfPath, opts)
+	if err != nil {
+		return 0, err
+	}
 	return docker.Run(args...)
 }
 
-func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash, fwConfPath string, opts UpOptions) []string {
+const hostDockerSocket = "/var/run/docker.sock"
+
+// dockerAccessArgs returns the docker-run args needed to grant the sandbox
+// access to the host docker daemon: a bind mount of the socket and a
+// --group-add for the socket's host GID so kekkai can write to it.
+func dockerAccessArgs() ([]string, error) {
+	info, err := os.Stat(hostDockerSocket)
+	if err != nil {
+		return nil, fmt.Errorf("docker_access requires %s on the host: %w", hostDockerSocket, err)
+	}
+	st, ok := info.Sys().(*syscall.Stat_t)
+	if !ok {
+		return nil, fmt.Errorf("docker_access: cannot stat %s for gid", hostDockerSocket)
+	}
+	gid := strconv.FormatUint(uint64(st.Gid), 10)
+	return []string{
+		"-v", hostDockerSocket + ":" + hostDockerSocket,
+		"--group-add", gid,
+	}, nil
+}
+
+func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash, fwConfPath string, opts UpOptions) ([]string, error) {
 	args := []string{"run", "--rm", "-it",
 		"--name", name,
 		"--label", LabelCwd + "=" + cwd,
@@ -75,6 +101,14 @@ func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash, fwConfPath string
 
 	for _, c := range cfg.Caps {
 		args = append(args, "--cap-add", c)
+	}
+
+	if cfg.DockerAccess {
+		extra, err := dockerAccessArgs()
+		if err != nil {
+			return nil, err
+		}
+		args = append(args, extra...)
 	}
 
 	args = append(args,
@@ -117,5 +151,5 @@ func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash, fwConfPath string
 		"bash", "-c",
 		"sudo /usr/local/bin/init-firewall.sh && exec claude $CLAUDE_ARGS",
 	)
-	return args
+	return args, nil
 }

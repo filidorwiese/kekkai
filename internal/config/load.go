@@ -85,6 +85,9 @@ func mergeLayer(cfg *Config, l *layer) {
 		if l.Image.ClaudeCodeVersion != nil {
 			cfg.Image.ClaudeCodeVersion = *l.Image.ClaudeCodeVersion
 		}
+		if l.Image.DockerCliVersion != nil {
+			cfg.Image.DockerCliVersion = *l.Image.DockerCliVersion
+		}
 		cfg.Image.AptPackages = append(cfg.Image.AptPackages, l.Image.AptPackages...)
 	}
 	cfg.Mounts = append(cfg.Mounts, l.Mounts...)
@@ -108,5 +111,8 @@ func mergeLayer(cfg *Config, l *layer) {
 	cfg.Caps = append(cfg.Caps, l.Caps...)
 	if l.Claude != nil && l.Claude.Args != nil {
 		cfg.Claude.Args = *l.Claude.Args
+	}
+	if l.DockerAccess != nil {
+		cfg.DockerAccess = *l.DockerAccess
 	}
 }

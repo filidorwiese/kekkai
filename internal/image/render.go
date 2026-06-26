@@ -16,6 +16,7 @@ type dockerfileVars struct {
 	ZshInDockerVersion string
 	TflintVersion      string
 	ClaudeCodeVersion  string
+	DockerCliVersion   string
 }
 
 // RenderDockerfile expands the embedded Dockerfile template with config values.
@@ -31,6 +32,7 @@ func RenderDockerfile(cfg *config.Config) (string, error) {
 		ZshInDockerVersion: cfg.Image.ZshInDockerVersion,
 		TflintVersion:      cfg.Image.TflintVersion,
 		ClaudeCodeVersion:  cfg.Image.ClaudeCodeVersion,
+		DockerCliVersion:   cfg.Image.DockerCliVersion,
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, v); err != nil {

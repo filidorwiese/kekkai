@@ -30,6 +30,7 @@ image:
   zsh_in_docker_version: "1.2.0"
   tflint_version: "0.54.0"
   claude_code_version: "latest"
+  docker_cli_version: "27.5.1"
 
 mounts:
   - { source: "~/.claude", target: "/home/kekkai/.claude" }
@@ -59,3 +60,8 @@ caps:
 
 claude:
   args: "--dangerously-skip-permissions"
+
+# When true, mount the host /var/run/docker.sock into the sandbox and add
+# the kekkai user to the host's docker GID. NB: this effectively grants
+# host-root via the docker daemon — enable only for projects that need it.
+docker_access: false

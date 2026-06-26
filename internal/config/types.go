@@ -1,12 +1,13 @@
 package config
 
 type Config struct {
-	Image    ImageConfig       `yaml:"image"`
-	Mounts   []Mount           `yaml:"mounts"`
-	Env      map[string]string `yaml:"env"`
-	Firewall FirewallConfig    `yaml:"firewall"`
-	Caps     []string          `yaml:"caps"`
-	Claude   ClaudeConfig      `yaml:"claude"`
+	Image        ImageConfig       `yaml:"image"`
+	Mounts       []Mount           `yaml:"mounts"`
+	Env          map[string]string `yaml:"env"`
+	Firewall     FirewallConfig    `yaml:"firewall"`
+	Caps         []string          `yaml:"caps"`
+	Claude       ClaudeConfig      `yaml:"claude"`
+	DockerAccess bool              `yaml:"docker_access"`
 }
 
 type ImageConfig struct {
@@ -16,6 +17,7 @@ type ImageConfig struct {
 	ZshInDockerVersion string   `yaml:"zsh_in_docker_version"`
 	TflintVersion      string   `yaml:"tflint_version"`
 	ClaudeCodeVersion  string   `yaml:"claude_code_version"`
+	DockerCliVersion   string   `yaml:"docker_cli_version"`
 }
 
 type Mount struct {
@@ -38,12 +40,13 @@ type ClaudeConfig struct {
 }
 
 type layer struct {
-	Image    *imageLayer    `yaml:"image,omitempty"`
-	Mounts   []Mount        `yaml:"mounts,omitempty"`
-	Env      map[string]string `yaml:"env,omitempty"`
-	Firewall *firewallLayer `yaml:"firewall,omitempty"`
-	Caps     []string       `yaml:"caps,omitempty"`
-	Claude   *claudeLayer   `yaml:"claude,omitempty"`
+	Image        *imageLayer       `yaml:"image,omitempty"`
+	Mounts       []Mount           `yaml:"mounts,omitempty"`
+	Env          map[string]string `yaml:"env,omitempty"`
+	Firewall     *firewallLayer    `yaml:"firewall,omitempty"`
+	Caps         []string          `yaml:"caps,omitempty"`
+	Claude       *claudeLayer      `yaml:"claude,omitempty"`
+	DockerAccess *bool             `yaml:"docker_access,omitempty"`
 }
 
 type imageLayer struct {
@@ -53,6 +56,7 @@ type imageLayer struct {
 	ZshInDockerVersion *string  `yaml:"zsh_in_docker_version,omitempty"`
 	TflintVersion      *string  `yaml:"tflint_version,omitempty"`
 	ClaudeCodeVersion  *string  `yaml:"claude_code_version,omitempty"`
+	DockerCliVersion   *string  `yaml:"docker_cli_version,omitempty"`
 }
 
 type firewallLayer struct {
