@@ -30,9 +30,6 @@ env:
   - NODE_OPTIONS=--max-old-space-size=4096
   - POWERLEVEL9K_DISABLE_GITSTATUS=true
   - SSH_AUTH_SOCK=/ssh-agent
-  - DEVCONTAINER=true
-  - EDITOR=nano
-  - VISUAL=nano
 
 firewall:
   allow_host_lan: true
