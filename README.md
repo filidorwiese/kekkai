@@ -1,5 +1,7 @@
 # Kekkai
 
+![Kekkai mascot](kekkai-mascot.png)
+
 > *Kekkai* (結界): a barrier/ward in Japanese folklore that confines spirits within a defined space.
 
 A portable, sandboxed Claude Code container you can run against any project folder.
