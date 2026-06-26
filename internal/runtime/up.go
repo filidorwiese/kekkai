@@ -135,8 +135,8 @@ func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash, fwConfPath string
 		args = append(args, "-v", spec)
 	}
 
-	for k, v := range cfg.Env {
-		args = append(args, "-e", k+"="+v)
+	for _, e := range cfg.Env {
+		args = append(args, "-e", e)
 	}
 	args = append(args, "-e", "WORKSPACE="+filepath.Base(cwd))
 

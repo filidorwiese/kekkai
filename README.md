@@ -8,7 +8,7 @@ A portable, sandboxed Claude Code container you can run against any project fold
 
 ## What it does
 
-Kekkai drops Claude Code into a sealed-off container so you can let it work autonomously on any project without worrying about what it might touch outside the folder you pointed it at. Every project gets its own isolated sandbox. Network access is locked down to an allowlist you control, so the agent can't reach out to anything you didn't approve. Your git identity, SSH agent, and Claude session carry over automatically. Each project can ship its own `.kekkai.yml` to extend the allowlist, add mounts, or grant extra capabilities.
+Kekkai drops Claude Code into a sealed-off container so you can let it work autonomously on any project without worrying about what it might touch outside the folder you pointed it at. Every project gets its own isolated sandbox. Network access is locked down to an allowlist you control, so the agent can't reach out to anything you didn't approve. Your git identity, SSH agent, and Claude session carry over automatically. Each project can ship its own `.kekkai.yaml` to extend the allowlist, add mounts, or grant extra capabilities.
 
 One binary on your machine, one command per project.
 
@@ -45,94 +45,97 @@ kekkai version
 Three layers, merged in order:
 
 1. Built-in defaults (baked into the binary).
-2. `~/.kekkai.yml` — user-wide overrides.
-3. `./.kekkai.yml` — project overrides.
+2. `~/.kekkai.yaml` — user-wide overrides.
+3. `./.kekkai.yaml` — project overrides.
 
-Merge rules: arrays under `image.apt_packages`, `firewall.allowed_domains`, and `mounts` **append**. Maps under `env` merge with later values overriding. All other scalars override. `claude.args` **replaces** (not appended) on override. Unknown keys fail with a line number. `~` and `${VAR}` are expanded in every string value at load time; an unset `${VAR}` errors unless its surrounding mount has `optional: true`.
-
-### `image` (bake-time — changing any value triggers a rebuild)
-
-| Key | Type | Default | Notes |
-|---|---|---|---|
-| `base` | string | `node:22` | Base Docker image. Must include a working `apt-get` and have a `node` user to rename. |
-| `apt_packages` | []string | `[less, git, procps, sudo, zsh, gh, iptables, ipset, iproute2, dnsutils, aggregate, jq, nano, curl, ca-certificates]` | Installed via a single `apt-get install -y`. User entries append; deduped. Keep this minimal — anything project-specific belongs in a project `./.kekkai.yml`. |
-| `docker_cli_version` | string | `27.5.1` | Static docker CLI from `download.docker.com`. Always installed; whether the daemon is reachable is controlled by `docker_access`. |
-| `claude_code_version` | string | `latest` | npm dist-tag or version for `@anthropic-ai/claude-code`. |
-
-### `mounts` (runtime — appended across layers)
-
-List of host→container bind mounts. Each entry:
-
-| Subkey | Type | Default | Notes |
-|---|---|---|---|
-| `source` | string | — (required) | Host path. `~` and `${VAR}` expanded. |
-| `target` | string | — (required) | Path inside the container. |
-| `readonly` | bool | `false` | Mount read-only (`:ro`). |
-| `optional` | bool | `false` | If `${VAR}` in `source` is unset OR the host path doesn't exist, skip with a warning instead of failing. |
-
-Defaults:
-
-| Source | Target | Flags |
-|---|---|---|
-| `~/.claude` | `/home/kekkai/.claude` | — |
-| `~/.gitconfig` | `/home/kekkai/.gitconfig` | readonly, optional |
-| `~/.config/git/allowed_signers` | `/home/kekkai/.config/git/allowed_signers` | readonly, optional |
-| `${SSH_AUTH_SOCK}` | `/ssh-agent` | optional |
-
-`$PWD → /workspace` and a per-folder bash-history volume → `/commandhistory` are always added and not configurable.
-
-### `env` (runtime — map merge with override)
-
-Environment variables set in the container. Default map:
-
-| Var | Value |
-|---|---|
-| `CLAUDE_CONFIG_DIR` | `/home/kekkai/.claude` |
-| `NODE_OPTIONS` | `--max-old-space-size=4096` |
-| `POWERLEVEL9K_DISABLE_GITSTATUS` | `true` |
-| `SSH_AUTH_SOCK` | `/ssh-agent` |
-| `DEVCONTAINER` | `true` |
-| `EDITOR` | `nano` |
-| `VISUAL` | `nano` |
-
-`${VAR}` references are expanded against your host environment at load time. `WORKSPACE` is auto-injected as `basename($PWD)` and cannot be set via config.
-
-### `firewall` (runtime — egress allowlist)
-
-Applied by `init-firewall.sh` inside the container at start.
-
-| Key | Type | Default | Notes |
-|---|---|---|---|
-| `allow_host_lan` | bool | `true` | Allow the `/24` around the default gateway — handy for local services like `host.docker.internal`. |
-| `allowed_domains` | []string | `[registry.npmjs.org, api.anthropic.com]` | Resolved to A records at startup and added to the ipset. Append-only across layers. |
-
-GitHub CIDRs (from `api.github.com/meta`) are always allowed — the container fails fast if GitHub is unreachable at startup. Everything else not on the allowlist is REJECTed. DNS (UDP/53), SSH (TCP/22), and loopback are always allowed. `NET_ADMIN` and `NET_RAW` capabilities are always added so the firewall script can run iptables/ipset.
-
-### `claude` (runtime)
-
-| Key | Type | Default | Notes |
-|---|---|---|---|
-| `args` | string | `--dangerously-skip-permissions` | Passed to the `claude` binary. **Replaces** on override (not appended). `kekkai up -- <extra>` appends `<extra>` at runtime. |
-
-### `docker_access` (runtime, top-level)
-
-| Key | Type | Default | Notes |
-|---|---|---|---|
-| `docker_access` | bool | `false` | When `true`, bind-mount `/var/run/docker.sock` and `--group-add` the socket's host GID so the `kekkai` user can run `docker`. **Bypasses the firewall** (the daemon does its own networking on the host) and effectively grants host-root via the daemon. Enable per-project, not globally. |
-
-### Example `./.kekkai.yml`
+Drop any subset of the keys below into either file. Everything is optional — omit a key to keep the default.
 
 ```yaml
-image:
-  apt_packages: [htop, jq]
+# ---- image (bake-time — changing any value triggers a rebuild) ----
+# image:
+#   base: node:22                          # base image; needs apt-get + a 'node' user to rename
+#   claude_code_version: "latest"          # npm dist-tag or pinned version of @anthropic-ai/claude-code
+#   docker_cli_version: "27.5.1"           # static docker CLI installed from download.docker.com
+#   apt_packages:                          # extra packages appended to the baked-in list (deduped)
+#     - less
+#     - git
+#     - procps
+#     - sudo
+#     - zsh
+#     - gh
+#     - iptables
+#     - ipset
+#     - iproute2
+#     - dnsutils
+#     - aggregate
+#     - jq
+#     - nano
+#     - curl
+#     - ca-certificates
 
+# Example: override base image, append to apt package list.
+image:
+  base: node:lts
+  apt_packages: [htop, golang]
+
+# ---- mounts (runtime — host→container binds; appended across layers) ----
+# Each entry: source (host path, ~ and ${VAR} expanded), target (path inside container),
+# readonly (default false), optional (skip with warning if source missing; default false).
+# $PWD → /workspace and a per-folder bash-history volume → /commandhistory are always added.
+# mounts:
+#   - { source: "~/.claude", target: "/home/kekkai/.claude" }
+#   - { source: "~/.gitconfig", target: "/home/kekkai/.gitconfig", readonly: true, optional: true }
+#   - { source: "~/.config/git/allowed_signers", target: "/home/kekkai/.config/git/allowed_signers", readonly: true, optional: true }
+#   - { source: "${SSH_AUTH_SOCK}", target: "/ssh-agent", optional: true }
+
+# Example: expose your AWS credentials read-only into the sandbox.
+mounts:
+  - { source: "~/.aws", target: "/home/kekkai/.aws", readonly: true, optional: true }
+
+# ---- env (runtime — env vars inside the container; KEY=value list, appended across layers) ----
+# Later entries override earlier ones with the same KEY. ${VAR} is expanded from your host env
+# at load time. WORKSPACE is auto-injected and cannot be set.
+# env:
+#   - CLAUDE_CONFIG_DIR=/home/kekkai/.claude    # where Claude Code reads/writes its config
+#   - NODE_OPTIONS=--max-old-space-size=4096    # node heap ceiling
+
+# Example: add an environment variable
+env:
+  - NODE_ENV=development
+
+# ---- firewall (runtime — egress allowlist; everything else is REJECTed) ----
+# DNS, SSH, loopback, and GitHub CIDRs are always allowed and not configurable.
+# firewall:
+#   allow_host_lan: true                   # allow the /24 around the default gateway (host.docker.internal etc.)
+#   allowed_domains:                       # resolved to A records at startup; appended across layers
+#     - registry.npmjs.org
+#     - api.anthropic.com
+
+# Example: add the agent reach Terraform registries (appends to built-in list).
 firewall:
   allowed_domains:
     - registry.terraform.io
     - releases.hashicorp.com
 
-mounts:
-  - { source: ~/.aws, target: /home/kekkai/.aws, readonly: true, optional: true }
+# ---- claude (runtime — args passed to the claude binary) ----
+# Replaces (not appends) on override. `kekkai up -- <extra>` appends <extra> at runtime.
+# claude:
+#   args: "--dangerously-skip-permissions"
 
-docker_access: true
+# ---- docker_access (runtime — mount the host docker socket into the sandbox) ----
+# When true, bind-mounts /var/run/docker.sock and adds the kekkai user to the socket's GID.
+# BYPASSES THE FIREWALL (the daemon does its own networking) and effectively grants host-root
+# via the daemon. Enable per-project, not globally.
+# docker_access: false
 ```
+
+### Merge strategy
+
+How merging works of built-in, ~/.kekkai.yaml and ./.kekkai.yaml:
+
+- **Lists** under `mounts`, `env`, `firewall.allowed_domains`, and `image.apt_packages` are **added to** the defaults - your entries pile on, they don't replace.
+- `env` entries are `KEY=value`; if the same `KEY` appears in a later layer it **overrides** the earlier one.
+- **Plain scalars** (e.g. `image.base`, `firewall.allow_host_lan`, `docker_access`) **override** the previous layer.
+- `claude.args` is the one exception: it's a string but it **replaces** wholesale, so include every flag you want.
+- `~` and `${VAR}` are expanded in any string value. An unset `${VAR}` errors out unless the surrounding mount is marked `optional: true`.
+- Unknown keys fail loudly with a line number - typos won't be silently ignored.

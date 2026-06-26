@@ -28,6 +28,16 @@ func Validate(cfg *Config) error {
 		seen[m.Target] = i
 	}
 
+	for i, e := range cfg.Env {
+		eq := strings.IndexByte(e, '=')
+		if eq <= 0 {
+			return fmt.Errorf("env[%d] (%q): must be KEY=value", i, e)
+		}
+		if e[:eq] == "WORKSPACE" {
+			return fmt.Errorf("env[%d]: WORKSPACE is injected automatically and cannot be set", i)
+		}
+	}
+
 	for _, d := range cfg.Firewall.AllowedDomains {
 		if strings.ContainsAny(d, " \t\n") {
 			return fmt.Errorf("firewall.allowed_domains: %q contains whitespace", d)

@@ -4,14 +4,16 @@ import (
 	"bytes"
 	"fmt"
 	"os"
+	"strings"
 
 	kekkaiembed "github.com/filidorwiese/kekkai/embed"
 	"gopkg.in/yaml.v3"
 )
 
-const ProjectConfigName = ".kekkai.yml"
+// ConfigBaseName is the config filename without extension; both .yml and .yaml are accepted.
+const ConfigBaseName = ".kekkai"
 
-// Load merges defaults → ~/.kekkai.yml → ./.kekkai.yml.
+// Load merges defaults → ~/.kekkai.{yml,yaml} → ./.kekkai.{yml,yaml}.
 // projectDir is typically the current working directory.
 func Load(home string, projectDir string) (*Config, error) {
 	cfg, err := decodeDefaults()
@@ -19,15 +21,23 @@ func Load(home string, projectDir string) (*Config, error) {
 		return nil, fmt.Errorf("decode embedded defaults: %w", err)
 	}
 
-	globalPath := home + "/.kekkai.yml"
+	globalPath, err := resolveConfigPath(home)
+	if err != nil {
+		return nil, err
+	}
 	if err := mergeFile(cfg, globalPath); err != nil {
 		return nil, err
 	}
 
-	projectPath := projectDir + "/" + ProjectConfigName
+	projectPath, err := resolveConfigPath(projectDir)
+	if err != nil {
+		return nil, err
+	}
 	if err := mergeFile(cfg, projectPath); err != nil {
 		return nil, err
 	}
+
+	cfg.Env = dedupEnv(cfg.Env)
 
 	if err := Expand(cfg, home); err != nil {
 		return nil, err
@@ -36,6 +46,54 @@ func Load(home string, projectDir string) (*Config, error) {
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// resolveConfigPath probes dir for .kekkai.yml and .kekkai.yaml. It returns the
+// existing one, "" if neither exists, or an error if both exist (ambiguous).
+func resolveConfigPath(dir string) (string, error) {
+	ymlPath := dir + "/" + ConfigBaseName + ".yml"
+	yamlPath := dir + "/" + ConfigBaseName + ".yaml"
+	ymlOK := fileExists(ymlPath)
+	yamlOK := fileExists(yamlPath)
+	switch {
+	case ymlOK && yamlOK:
+		return "", fmt.Errorf("both %s and %s exist; keep only one", ymlPath, yamlPath)
+	case ymlOK:
+		return ymlPath, nil
+	case yamlOK:
+		return yamlPath, nil
+	default:
+		return "", nil
+	}
+}
+
+func fileExists(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+// dedupEnv keeps only the last occurrence of each KEY in a list of KEY=value
+// entries, so later layers override earlier ones per key. Order follows each
+// key's final position.
+func dedupEnv(entries []string) []string {
+	last := map[string]int{}
+	for i, e := range entries {
+		last[envKey(e)] = i
+	}
+	out := make([]string, 0, len(entries))
+	for i, e := range entries {
+		if last[envKey(e)] == i {
+			out = append(out, e)
+		}
+	}
+	return out
+}
+
+func envKey(e string) string {
+	if i := strings.IndexByte(e, '='); i >= 0 {
+		return e[:i]
+	}
+	return e
 }
 
 func decodeDefaults() (*Config, error) {
@@ -49,6 +107,9 @@ func decodeDefaults() (*Config, error) {
 }
 
 func mergeFile(cfg *Config, path string) error {
+	if path == "" {
+		return nil
+	}
 	f, err := os.Open(path)
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -82,14 +143,7 @@ func mergeLayer(cfg *Config, l *layer) {
 		cfg.Image.AptPackages = append(cfg.Image.AptPackages, l.Image.AptPackages...)
 	}
 	cfg.Mounts = append(cfg.Mounts, l.Mounts...)
-	if l.Env != nil {
-		if cfg.Env == nil {
-			cfg.Env = map[string]string{}
-		}
-		for k, v := range l.Env {
-			cfg.Env[k] = v
-		}
-	}
+	cfg.Env = append(cfg.Env, l.Env...)
 	if l.Firewall != nil {
 		if l.Firewall.AllowHostLan != nil {
 			cfg.Firewall.AllowHostLan = *l.Firewall.AllowHostLan

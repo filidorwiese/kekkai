@@ -54,12 +54,12 @@ func Expand(cfg *Config, home string) error {
 		cfg.Mounts[i].Target = tgt
 	}
 
-	for k, v := range cfg.Env {
-		expanded, miss, ok := expandStr(v, home)
+	for i, e := range cfg.Env {
+		expanded, miss, ok := expandStr(e, home)
 		if !ok {
-			return fmt.Errorf("env %s: env var %s is unset", k, miss)
+			return fmt.Errorf("env %q: env var %s is unset", e, miss)
 		}
-		cfg.Env[k] = expanded
+		cfg.Env[i] = expanded
 	}
 
 	if cfg.Claude.Args != "" {

@@ -19,7 +19,7 @@ cd ~/some-test-project && /tmp/kekkai up
 `cmd/kekkai/main.go` uses stdlib `flag` per subcommand. Each subcommand delegates into `internal/runtime/<name>.go`. Subcommands: `up`, `down`, `shell`, `ps`, `prune`, `doctor`, `version`, `help`.
 
 ### Config pipeline
-`internal/config/`: three layers merged in order — embedded defaults (`embed/defaults.yml`), `~/.kekkai.yml`, `./.kekkai.yml`. Strict YAML (`yaml.v3` + `KnownFields(true)`). Arrays append-only; scalars override; `claude.args` replaces. `~` and `${VAR}` expand after merge; unset `${VAR}` errors unless the surrounding mount has `optional: true`.
+`internal/config/`: three layers merged in order — embedded defaults (`embed/defaults.yml`), `~/.kekkai.{yml,yaml}`, `./.kekkai.{yml,yaml}` (both extensions accepted per location; having both is an error). Strict YAML (`yaml.v3` + `KnownFields(true)`). Arrays append-only; scalars override; `claude.args` replaces. `~` and `${VAR}` expand after merge; unset `${VAR}` errors unless the surrounding mount has `optional: true`.
 
 Top-level keys: `image`, `mounts`, `env`, `firewall`, `claude`, `docker_access`. `caps` and `firewall.allow_github_meta` are intentionally not user-configurable — `NET_ADMIN`/`NET_RAW` and GitHub meta CIDRs are non-negotiable for the firewall to work.
 

@@ -1,12 +1,12 @@
 package config
 
 type Config struct {
-	Image        ImageConfig       `yaml:"image"`
-	Mounts       []Mount           `yaml:"mounts"`
-	Env          map[string]string `yaml:"env"`
-	Firewall     FirewallConfig    `yaml:"firewall"`
-	Claude       ClaudeConfig      `yaml:"claude"`
-	DockerAccess bool              `yaml:"docker_access"`
+	Image        ImageConfig    `yaml:"image"`
+	Mounts       []Mount        `yaml:"mounts"`
+	Env          []string       `yaml:"env"`
+	Firewall     FirewallConfig `yaml:"firewall"`
+	Claude       ClaudeConfig   `yaml:"claude"`
+	DockerAccess bool           `yaml:"docker_access"`
 }
 
 type ImageConfig struct {
@@ -35,12 +35,12 @@ type ClaudeConfig struct {
 }
 
 type layer struct {
-	Image        *imageLayer       `yaml:"image,omitempty"`
-	Mounts       []Mount           `yaml:"mounts,omitempty"`
-	Env          map[string]string `yaml:"env,omitempty"`
-	Firewall     *firewallLayer    `yaml:"firewall,omitempty"`
-	Claude       *claudeLayer      `yaml:"claude,omitempty"`
-	DockerAccess *bool             `yaml:"docker_access,omitempty"`
+	Image        *imageLayer    `yaml:"image,omitempty"`
+	Mounts       []Mount        `yaml:"mounts,omitempty"`
+	Env          []string       `yaml:"env,omitempty"`
+	Firewall     *firewallLayer `yaml:"firewall,omitempty"`
+	Claude       *claudeLayer   `yaml:"claude,omitempty"`
+	DockerAccess *bool          `yaml:"docker_access,omitempty"`
 }
 
 type imageLayer struct {
