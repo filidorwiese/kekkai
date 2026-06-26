@@ -4,7 +4,7 @@
 
 > *Kekkai* (結界): a barrier/ward in Japanese folklore that confines spirits within a defined space.
 
-A portable, sandboxed Claude Code container you can run against any project folder.
+A portable, configurable, sandboxed Claude Code container you can run against any project folder.
 
 ## What it does
 
@@ -34,6 +34,7 @@ kekkai down        # stop and remove the sandbox for this folder
 kekkai shell       # open zsh in the running sandbox
 kekkai ps          # list running kekkai containers
 kekkai prune       # remove orphans (containers, images); --volumes for history vols
+kekkai config      # show + validate the merged config; --yaml to emit valid YAML
 kekkai doctor      # diagnose host setup
 kekkai version
 ```
@@ -48,6 +49,14 @@ Two layers, merged in order:
 2. `./.kekkai.yaml` — project overrides.
 
 Drop any subset of the keys below into the project file. Everything is optional — omit a key to keep the default. Run `kekkai config` to see the merged result.
+
+To scaffold a project file from the current merged config:
+
+```sh
+kekkai config --yaml > ./.kekkai.yaml
+```
+
+This writes a complete, valid snapshot (defaults + any existing overrides, with `~` and `${VAR}` resolved for this host) that you can trim down to just what you want to change. Re-merging it is idempotent, so it stays valid as-is.
 
 ```yaml
 # ---- image (bake-time — changing any value triggers a rebuild) ----

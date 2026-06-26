@@ -16,7 +16,7 @@ cd ~/some-test-project && /tmp/kekkai up
 ## Architecture
 
 ### Subcommand dispatch
-`cmd/kekkai/main.go` uses stdlib `flag` per subcommand. Each subcommand delegates into `internal/runtime/<name>.go`. Subcommands: `up`, `down`, `shell`, `ps`, `prune`, `doctor`, `version`, `help`.
+`cmd/kekkai/main.go` uses stdlib `flag` per subcommand. Each subcommand delegates into `internal/runtime/<name>.go`. Subcommands: `up`, `down`, `shell`, `ps`, `prune`, `config`, `doctor`, `version`, `help`.
 
 ### Config pipeline
 `internal/config/`: two layers merged in order — embedded defaults (`embed/defaults.yml`), then `./.kekkai.{yml,yaml}` (both extensions accepted; having both is an error). There is no user-global config layer; per-project only. Strict YAML (`yaml.v3` + `KnownFields(true)`). Arrays append-only; scalars override; `claude.args` replaces. `~` and `${VAR}` expand after merge; unset `${VAR}` errors unless the surrounding mount has `optional: true`.

@@ -8,12 +8,26 @@ import (
 	"github.com/filidorwiese/kekkai/internal/config"
 )
 
-// Config loads and validates the merged configuration for cwd, then prints a
+// Config loads and validates the merged configuration for cwd. With asYAML it
+// prints the config as a valid .kekkai.yaml document; otherwise it prints a
 // human-readable summary. A non-nil error means the configuration is invalid.
-func Config(cwd string) error {
+func Config(cwd string, asYAML bool) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
+	}
+
+	if asYAML {
+		cfg, err := config.Load(home, cwd)
+		if err != nil {
+			return fmt.Errorf("invalid configuration: %w", err)
+		}
+		out, err := config.YAML(cfg)
+		if err != nil {
+			return err
+		}
+		fmt.Print(string(out))
+		return nil
 	}
 
 	// Source surfaces the same ambiguity error Load would; resolve first so we

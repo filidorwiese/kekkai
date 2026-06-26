@@ -62,9 +62,7 @@ func main() {
 	case "prune":
 		os.Exit(runPrune(rest))
 	case "config":
-		if err := runtime.Config(cwd); err != nil {
-			exitErr(err)
-		}
+		os.Exit(runConfig(cwd, rest))
 	case "doctor":
 		code, err := runtime.Doctor(cwd)
 		if err != nil {
@@ -120,6 +118,18 @@ func runUp(cwd string, args []string) int {
 		exitErr(err)
 	}
 	return code
+}
+
+func runConfig(cwd string, args []string) int {
+	fs := flag.NewFlagSet("config", flag.ExitOnError)
+	asYAML := fs.Bool("yaml", false, "output the merged config as a valid .kekkai.yaml document")
+	if err := fs.Parse(args); err != nil {
+		exitErr(err)
+	}
+	if err := runtime.Config(cwd, *asYAML); err != nil {
+		exitErr(err)
+	}
+	return 0
 }
 
 func runPrune(args []string) int {
