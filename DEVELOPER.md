@@ -5,7 +5,7 @@ How to build, run, and test kekkai locally.
 ## Prerequisites
 
 - Go ≥ 1.22
-- Docker (daemon reachable from your user; no sudo)
+- Docker
 - Linux x86_64 or aarch64
 
 ## Build
