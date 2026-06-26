@@ -1,0 +1,61 @@
+image:
+  base: node:22
+  apt_packages:
+    - less
+    - git
+    - procps
+    - sudo
+    - fzf
+    - zsh
+    - man-db
+    - unzip
+    - gnupg2
+    - gh
+    - iptables
+    - ipset
+    - iproute2
+    - dnsutils
+    - aggregate
+    - jq
+    - nano
+    - vim
+    - python3
+    - python3-pip
+    - python3-venv
+    - pipx
+    - wget
+    - curl
+    - ca-certificates
+  git_delta_version: "0.18.2"
+  zsh_in_docker_version: "1.2.0"
+  tflint_version: "0.54.0"
+  claude_code_version: "latest"
+
+mounts:
+  - { source: "~/.claude", target: "/home/node/.claude" }
+  - { source: "~/.gitconfig", target: "/home/node/.gitconfig", readonly: true, optional: true }
+  - { source: "~/.config/git/allowed_signers", target: "/home/node/.config/git/allowed_signers", readonly: true, optional: true }
+  - { source: "${SSH_AUTH_SOCK}", target: "/ssh-agent", optional: true }
+
+env:
+  CLAUDE_CONFIG_DIR: /home/node/.claude
+  NODE_OPTIONS: "--max-old-space-size=4096"
+  POWERLEVEL9K_DISABLE_GITSTATUS: "true"
+  SSH_AUTH_SOCK: /ssh-agent
+  DEVCONTAINER: "true"
+  EDITOR: nano
+  VISUAL: nano
+
+firewall:
+  allow_github_meta: true
+  allow_host_lan: true
+  allowed_domains:
+    - registry.npmjs.org
+    - api.anthropic.com
+
+caps:
+  - NET_ADMIN
+  - NET_RAW
+
+claude:
+  args: "--dangerously-skip-permissions"
