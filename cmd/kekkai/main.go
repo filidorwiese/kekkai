@@ -21,6 +21,7 @@ Commands:
   shell     Open zsh inside the running sandbox for $PWD.
   ps        List running kekkai containers.
   prune     Remove orphan containers + unused kekkai:* images.
+  config    Show and validate the merged sandbox configuration for $PWD.
   doctor    Diagnose host setup.
   version   Print kekkai version.
   help      Show this help.
@@ -60,6 +61,10 @@ func main() {
 		}
 	case "prune":
 		os.Exit(runPrune(rest))
+	case "config":
+		if err := runtime.Config(cwd); err != nil {
+			exitErr(err)
+		}
 	case "doctor":
 		code, err := runtime.Doctor(cwd)
 		if err != nil {

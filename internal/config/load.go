@@ -48,6 +48,19 @@ func Load(home string, projectDir string) (*Config, error) {
 	return cfg, nil
 }
 
+// Sources returns the global and project config file paths that Load merges on
+// top of the embedded defaults. An empty string means no file was found for
+// that layer. It surfaces the same ambiguity error as Load (both extensions).
+func Sources(home, projectDir string) (global, project string, err error) {
+	if global, err = resolveConfigPath(home); err != nil {
+		return "", "", err
+	}
+	if project, err = resolveConfigPath(projectDir); err != nil {
+		return "", "", err
+	}
+	return global, project, nil
+}
+
 // resolveConfigPath probes dir for .kekkai.yml and .kekkai.yaml. It returns the
 // existing one, "" if neither exists, or an error if both exist (ambiguous).
 func resolveConfigPath(dir string) (string, error) {
