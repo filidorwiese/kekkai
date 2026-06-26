@@ -115,9 +115,6 @@ The real release happens by pushing a `v*` tag — `.github/workflows/release.ym
 
 Pinned in `embed/defaults.yml` under `image.*`:
 
-- `git_delta_version`
-- `zsh_in_docker_version`
-- `tflint_version`
 - `docker_cli_version`
 - `claude_code_version` (defaults to `latest` — leave alone unless pinning)
 

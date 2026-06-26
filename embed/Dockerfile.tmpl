@@ -12,26 +12,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 {{- end }}
   && apt-get clean && rm -rf /var/lib/apt/lists/*
 
-ENV PIPX_HOME=/usr/local/pipx \
-    PIPX_BIN_DIR=/usr/local/bin
-RUN pipx install yamllint && \
-    pipx install ansible-lint
-
-ARG TFLINT_VERSION={{.TflintVersion}}
-RUN ARCH=$(dpkg --print-architecture) && \
-    wget -q -O /tmp/tflint.zip "https://github.com/terraform-linters/tflint/releases/download/v${TFLINT_VERSION}/tflint_linux_${ARCH}.zip" && \
-    unzip /tmp/tflint.zip -d /usr/local/bin && \
-    rm /tmp/tflint.zip && \
-    chmod +x /usr/local/bin/tflint
-
 RUN mkdir -p /usr/local/share/npm-global && \
   chown -R kekkai:kekkai /usr/local/share
 
-ARG USERNAME=kekkai
-
 RUN mkdir /commandhistory \
-  && touch /commandhistory/.bash_history \
-  && chown -R $USERNAME /commandhistory
+  && touch /commandhistory/.zsh_history \
+  && chown -R kekkai:kekkai /commandhistory
 
 ENV DEVCONTAINER=true
 
@@ -40,15 +26,9 @@ RUN mkdir -p /workspace /home/kekkai/.claude /etc/kekkai && \
 
 WORKDIR /workspace
 
-ARG GIT_DELTA_VERSION={{.GitDeltaVersion}}
-RUN ARCH=$(dpkg --print-architecture) && \
-  wget -q "https://github.com/dandavison/delta/releases/download/${GIT_DELTA_VERSION}/git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
-  dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
-  rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
-
 ARG DOCKER_CLI_VERSION={{.DockerCliVersion}}
 RUN ARCH=$(uname -m) && \
-  wget -q -O /tmp/docker.tgz "https://download.docker.com/linux/static/stable/${ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" && \
+  curl -fsSL -o /tmp/docker.tgz "https://download.docker.com/linux/static/stable/${ARCH}/docker-${DOCKER_CLI_VERSION}.tgz" && \
   tar -xzf /tmp/docker.tgz -C /tmp docker/docker && \
   mv /tmp/docker/docker /usr/local/bin/docker && \
   chmod +x /usr/local/bin/docker && \
@@ -63,14 +43,12 @@ ENV SHELL=/bin/zsh
 ENV EDITOR=nano
 ENV VISUAL=nano
 
-ARG ZSH_IN_DOCKER_VERSION={{.ZshInDockerVersion}}
-RUN sh -c "$(wget -O- https://github.com/deluan/zsh-in-docker/releases/download/v${ZSH_IN_DOCKER_VERSION}/zsh-in-docker.sh)" -- \
-  -p git \
-  -p fzf \
-  -a "source /usr/share/doc/fzf/examples/key-bindings.zsh" \
-  -a "source /usr/share/doc/fzf/examples/completion.zsh" \
-  -a "export PROMPT_COMMAND='history -a' && export HISTFILE=/commandhistory/.bash_history" \
-  -x
+RUN printf '%s\n' \
+  'export HISTFILE=/commandhistory/.zsh_history' \
+  'HISTSIZE=100000' \
+  'SAVEHIST=100000' \
+  'setopt INC_APPEND_HISTORY' \
+  > /home/kekkai/.zshrc
 
 ARG CLAUDE_CODE_VERSION={{.ClaudeCodeVersion}}
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
@@ -81,5 +59,3 @@ RUN chmod +x /usr/local/bin/init-firewall.sh && \
   echo "kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/kekkai-firewall && \
   chmod 0440 /etc/sudoers.d/kekkai-firewall
 USER kekkai
-
-WORKDIR /workspace

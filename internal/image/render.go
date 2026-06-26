@@ -10,13 +10,10 @@ import (
 )
 
 type dockerfileVars struct {
-	Base               string
-	AptPackages        []string
-	GitDeltaVersion    string
-	ZshInDockerVersion string
-	TflintVersion      string
-	ClaudeCodeVersion  string
-	DockerCliVersion   string
+	Base              string
+	AptPackages       []string
+	ClaudeCodeVersion string
+	DockerCliVersion  string
 }
 
 // RenderDockerfile expands the embedded Dockerfile template with config values.
@@ -26,13 +23,10 @@ func RenderDockerfile(cfg *config.Config) (string, error) {
 		return "", err
 	}
 	v := dockerfileVars{
-		Base:               cfg.Image.Base,
-		AptPackages:        dedupe(cfg.Image.AptPackages),
-		GitDeltaVersion:    cfg.Image.GitDeltaVersion,
-		ZshInDockerVersion: cfg.Image.ZshInDockerVersion,
-		TflintVersion:      cfg.Image.TflintVersion,
-		ClaudeCodeVersion:  cfg.Image.ClaudeCodeVersion,
-		DockerCliVersion:   cfg.Image.DockerCliVersion,
+		Base:              cfg.Image.Base,
+		AptPackages:       dedupe(cfg.Image.AptPackages),
+		ClaudeCodeVersion: cfg.Image.ClaudeCodeVersion,
+		DockerCliVersion:  cfg.Image.DockerCliVersion,
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, v); err != nil {

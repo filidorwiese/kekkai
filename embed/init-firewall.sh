@@ -10,7 +10,6 @@ fi
 # shellcheck disable=SC1090
 source "$CONF"
 
-: "${ALLOW_GITHUB_META:=1}"
 : "${ALLOW_HOST_LAN:=1}"
 : "${ALLOWED_DOMAINS:=}"
 
@@ -46,27 +45,25 @@ add_rule OUTPUT -o lo -j ACCEPT
 
 ipset create allowed-domains hash:net
 
-if [ "$ALLOW_GITHUB_META" = "1" ]; then
-    echo "Fetching GitHub IP ranges..."
-    gh_ranges=$(curl -s https://api.github.com/meta)
-    if [ -z "$gh_ranges" ]; then
-        echo "ERROR: Failed to fetch GitHub IP ranges"
-        exit 1
-    fi
-    if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null; then
-        echo "ERROR: GitHub API response missing required fields"
-        exit 1
-    fi
-    echo "Processing GitHub IPs..."
-    while read -r cidr; do
-        if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
-            echo "ERROR: Invalid CIDR range from GitHub meta: $cidr"
-            exit 1
-        fi
-        echo "Adding GitHub range $cidr"
-        ipset add -exist allowed-domains "$cidr"
-    done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
+echo "Fetching GitHub IP ranges..."
+gh_ranges=$(curl -s https://api.github.com/meta)
+if [ -z "$gh_ranges" ]; then
+    echo "ERROR: Failed to fetch GitHub IP ranges"
+    exit 1
 fi
+if ! echo "$gh_ranges" | jq -e '.web and .api and .git' >/dev/null; then
+    echo "ERROR: GitHub API response missing required fields"
+    exit 1
+fi
+echo "Processing GitHub IPs..."
+while read -r cidr; do
+    if [[ ! "$cidr" =~ ^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}/[0-9]{1,2}$ ]]; then
+        echo "ERROR: Invalid CIDR range from GitHub meta: $cidr"
+        exit 1
+    fi
+    echo "Adding GitHub range $cidr"
+    ipset add -exist allowed-domains "$cidr"
+done < <(echo "$gh_ranges" | jq -r '(.web + .api + .git)[]' | aggregate -q)
 
 for domain in $ALLOWED_DOMAINS; do
     [ -z "$domain" ] && continue
@@ -119,10 +116,8 @@ else
 fi
 
 if ! curl --connect-timeout 5 https://api.github.com/zen >/dev/null 2>&1; then
-    if [ "$ALLOW_GITHUB_META" = "1" ]; then
-        echo "ERROR: Firewall verification failed - unable to reach https://api.github.com"
-        exit 1
-    fi
+    echo "ERROR: Firewall verification failed - unable to reach https://api.github.com"
+    exit 1
 else
     echo "Firewall verification passed - able to reach https://api.github.com as expected"
 fi

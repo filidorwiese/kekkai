@@ -48,17 +48,14 @@ Three layers, merged in order:
 2. `~/.kekkai.yml` — user-wide overrides.
 3. `./.kekkai.yml` — project overrides.
 
-Merge rules: arrays under `image.apt_packages`, `firewall.allowed_domains`, `mounts`, and `caps` **append**. Maps under `env` merge with later values overriding. All other scalars override. `claude.args` **replaces** (not appended) on override. Unknown keys fail with a line number. `~` and `${VAR}` are expanded in every string value at load time; an unset `${VAR}` errors unless its surrounding mount has `optional: true`.
+Merge rules: arrays under `image.apt_packages`, `firewall.allowed_domains`, and `mounts` **append**. Maps under `env` merge with later values overriding. All other scalars override. `claude.args` **replaces** (not appended) on override. Unknown keys fail with a line number. `~` and `${VAR}` are expanded in every string value at load time; an unset `${VAR}` errors unless its surrounding mount has `optional: true`.
 
 ### `image` (bake-time — changing any value triggers a rebuild)
 
 | Key | Type | Default | Notes |
 |---|---|---|---|
 | `base` | string | `node:22` | Base Docker image. Must include a working `apt-get` and have a `node` user to rename. |
-| `apt_packages` | []string | `[less, git, procps, sudo, fzf, zsh, man-db, unzip, gnupg2, gh, iptables, ipset, iproute2, dnsutils, aggregate, jq, nano, vim, python3, python3-pip, python3-venv, pipx, wget, curl, ca-certificates]` | Installed via a single `apt-get install -y`. User entries append; deduped. |
-| `git_delta_version` | string | `0.18.2` | [`dandavison/delta`](https://github.com/dandavison/delta) release version (no `v` prefix). |
-| `zsh_in_docker_version` | string | `1.2.0` | [`deluan/zsh-in-docker`](https://github.com/deluan/zsh-in-docker) release version. |
-| `tflint_version` | string | `0.54.0` | [`terraform-linters/tflint`](https://github.com/terraform-linters/tflint) release version. |
+| `apt_packages` | []string | `[less, git, procps, sudo, zsh, gh, iptables, ipset, iproute2, dnsutils, aggregate, jq, nano, curl, ca-certificates]` | Installed via a single `apt-get install -y`. User entries append; deduped. Keep this minimal — anything project-specific belongs in a project `./.kekkai.yml`. |
 | `docker_cli_version` | string | `27.5.1` | Static docker CLI from `download.docker.com`. Always installed; whether the daemon is reachable is controlled by `docker_access`. |
 | `claude_code_version` | string | `latest` | npm dist-tag or version for `@anthropic-ai/claude-code`. |
 
@@ -106,17 +103,10 @@ Applied by `init-firewall.sh` inside the container at start.
 
 | Key | Type | Default | Notes |
 |---|---|---|---|
-| `allow_github_meta` | bool | `true` | Fetch CIDRs from `api.github.com/meta` (`.web + .api + .git`) and allow. If GitHub is unreachable at startup the container fails fast. |
 | `allow_host_lan` | bool | `true` | Allow the `/24` around the default gateway — handy for local services like `host.docker.internal`. |
 | `allowed_domains` | []string | `[registry.npmjs.org, api.anthropic.com]` | Resolved to A records at startup and added to the ipset. Append-only across layers. |
 
-Everything not on the allowlist is REJECTed. DNS (UDP/53), SSH (TCP/22), and loopback are always allowed.
-
-### `caps` (runtime — appended across layers)
-
-Linux capabilities added via `--cap-add`.
-
-Default: `[NET_ADMIN, NET_RAW]` — required for the firewall script to run iptables/ipset. Removing these breaks the firewall.
+GitHub CIDRs (from `api.github.com/meta`) are always allowed — the container fails fast if GitHub is unreachable at startup. Everything else not on the allowlist is REJECTed. DNS (UDP/53), SSH (TCP/22), and loopback are always allowed. `NET_ADMIN` and `NET_RAW` capabilities are always added so the firewall script can run iptables/ipset.
 
 ### `claude` (runtime)
 

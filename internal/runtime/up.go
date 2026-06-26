@@ -99,9 +99,9 @@ func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash, fwConfPath string
 		"--label", LabelVersion + "=" + opts.Version,
 	}
 
-	for _, c := range cfg.Caps {
-		args = append(args, "--cap-add", c)
-	}
+	// NET_ADMIN + NET_RAW are required for the in-container firewall script
+	// (iptables/ipset). Not configurable.
+	args = append(args, "--cap-add", "NET_ADMIN", "--cap-add", "NET_RAW")
 
 	if cfg.DockerAccess {
 		extra, err := dockerAccessArgs()

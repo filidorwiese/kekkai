@@ -5,11 +5,7 @@ image:
     - git
     - procps
     - sudo
-    - fzf
     - zsh
-    - man-db
-    - unzip
-    - gnupg2
     - gh
     - iptables
     - ipset
@@ -18,17 +14,8 @@ image:
     - aggregate
     - jq
     - nano
-    - vim
-    - python3
-    - python3-pip
-    - python3-venv
-    - pipx
-    - wget
     - curl
     - ca-certificates
-  git_delta_version: "0.18.2"
-  zsh_in_docker_version: "1.2.0"
-  tflint_version: "0.54.0"
   claude_code_version: "latest"
   docker_cli_version: "27.5.1"
 
@@ -48,15 +35,10 @@ env:
   VISUAL: nano
 
 firewall:
-  allow_github_meta: true
   allow_host_lan: true
   allowed_domains:
     - registry.npmjs.org
     - api.anthropic.com
-
-caps:
-  - NET_ADMIN
-  - NET_RAW
 
 claude:
   args: "--dangerously-skip-permissions"

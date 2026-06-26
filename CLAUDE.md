@@ -21,7 +21,7 @@ cd ~/some-test-project && /tmp/kekkai up
 ### Config pipeline
 `internal/config/`: three layers merged in order — embedded defaults (`embed/defaults.yml`), `~/.kekkai.yml`, `./.kekkai.yml`. Strict YAML (`yaml.v3` + `KnownFields(true)`). Arrays append-only; scalars override; `claude.args` replaces. `~` and `${VAR}` expand after merge; unset `${VAR}` errors unless the surrounding mount has `optional: true`.
 
-Top-level keys: `image`, `mounts`, `env`, `firewall`, `caps`, `claude`, `docker_access`.
+Top-level keys: `image`, `mounts`, `env`, `firewall`, `claude`, `docker_access`. `caps` and `firewall.allow_github_meta` are intentionally not user-configurable — `NET_ADMIN`/`NET_RAW` and GitHub meta CIDRs are non-negotiable for the firewall to work.
 
 ### Image identity (bake-time inputs)
 - Dockerfile template (`embed/Dockerfile.tmpl`) is rendered with `image.*` config values.
@@ -31,7 +31,7 @@ Top-level keys: `image`, `mounts`, `env`, `firewall`, `caps`, `claude`, `docker_
 ### Runtime inputs (NOT in image hash)
 - `firewall.*` — rendered to `$TMPDIR/kekkai-<name>/firewall.conf`, bind-mounted read-only at `/etc/kekkai/firewall.conf` (sourced by `init-firewall.sh`).
 - `docker_access` — when true, `runtime/up.go` stats `/var/run/docker.sock`, mounts it into the container, and adds `--group-add <socket-gid>` so the in-container user can write to it. The docker CLI is **always installed** in the image regardless of the flag.
-- `mounts`, `env`, `caps`, `claude.args` — all applied at `docker run` time.
+- `mounts`, `env`, `claude.args` — all applied at `docker run` time.
 
 Why this split: changing allowlist / mounts / docker access must not trigger a rebuild.
 

@@ -73,15 +73,6 @@ func mergeLayer(cfg *Config, l *layer) {
 		if l.Image.Base != nil {
 			cfg.Image.Base = *l.Image.Base
 		}
-		if l.Image.GitDeltaVersion != nil {
-			cfg.Image.GitDeltaVersion = *l.Image.GitDeltaVersion
-		}
-		if l.Image.ZshInDockerVersion != nil {
-			cfg.Image.ZshInDockerVersion = *l.Image.ZshInDockerVersion
-		}
-		if l.Image.TflintVersion != nil {
-			cfg.Image.TflintVersion = *l.Image.TflintVersion
-		}
 		if l.Image.ClaudeCodeVersion != nil {
 			cfg.Image.ClaudeCodeVersion = *l.Image.ClaudeCodeVersion
 		}
@@ -100,15 +91,11 @@ func mergeLayer(cfg *Config, l *layer) {
 		}
 	}
 	if l.Firewall != nil {
-		if l.Firewall.AllowGithubMeta != nil {
-			cfg.Firewall.AllowGithubMeta = *l.Firewall.AllowGithubMeta
-		}
 		if l.Firewall.AllowHostLan != nil {
 			cfg.Firewall.AllowHostLan = *l.Firewall.AllowHostLan
 		}
 		cfg.Firewall.AllowedDomains = append(cfg.Firewall.AllowedDomains, l.Firewall.AllowedDomains...)
 	}
-	cfg.Caps = append(cfg.Caps, l.Caps...)
 	if l.Claude != nil && l.Claude.Args != nil {
 		cfg.Claude.Args = *l.Claude.Args
 	}

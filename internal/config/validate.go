@@ -28,12 +28,6 @@ func Validate(cfg *Config) error {
 		seen[m.Target] = i
 	}
 
-	for _, c := range cfg.Caps {
-		if c == "" {
-			return fmt.Errorf("caps: empty capability")
-		}
-	}
-
 	for _, d := range cfg.Firewall.AllowedDomains {
 		if strings.ContainsAny(d, " \t\n") {
 			return fmt.Errorf("firewall.allowed_domains: %q contains whitespace", d)
