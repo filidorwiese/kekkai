@@ -3,6 +3,9 @@ FROM {{.Base}}
 ARG TZ
 ENV TZ="$TZ"
 
+RUN groupmod -n kekkai node && \
+    usermod  -l kekkai -d /home/kekkai -m node
+
 RUN apt-get update && apt-get install -y --no-install-recommends \
 {{- range .AptPackages }}
   {{.}} \
@@ -22,9 +25,9 @@ RUN ARCH=$(dpkg --print-architecture) && \
     chmod +x /usr/local/bin/tflint
 
 RUN mkdir -p /usr/local/share/npm-global && \
-  chown -R node:node /usr/local/share
+  chown -R kekkai:kekkai /usr/local/share
 
-ARG USERNAME=node
+ARG USERNAME=kekkai
 
 RUN mkdir /commandhistory \
   && touch /commandhistory/.bash_history \
@@ -32,8 +35,8 @@ RUN mkdir /commandhistory \
 
 ENV DEVCONTAINER=true
 
-RUN mkdir -p /workspace /home/node/.claude /etc/kekkai && \
-  chown -R node:node /workspace /home/node/.claude
+RUN mkdir -p /workspace /home/kekkai/.claude /etc/kekkai && \
+  chown -R kekkai:kekkai /workspace /home/kekkai/.claude
 
 WORKDIR /workspace
 
@@ -43,7 +46,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
   dpkg -i "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb" && \
   rm "git-delta_${GIT_DELTA_VERSION}_${ARCH}.deb"
 
-USER node
+USER kekkai
 
 ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global
 ENV PATH=$PATH:/usr/local/share/npm-global/bin
@@ -67,8 +70,8 @@ RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_CODE_VERSION}
 COPY init-firewall.sh /usr/local/bin/init-firewall.sh
 USER root
 RUN chmod +x /usr/local/bin/init-firewall.sh && \
-  echo "node ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/node-firewall && \
-  chmod 0440 /etc/sudoers.d/node-firewall
-USER node
+  echo "kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh" > /etc/sudoers.d/kekkai-firewall && \
+  chmod 0440 /etc/sudoers.d/kekkai-firewall
+USER kekkai
 
 WORKDIR /workspace

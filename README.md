@@ -7,7 +7,7 @@ A portable, sandboxed Claude Code container you can run against any project fold
 ## What it does
 
 - Builds a `node:22`-based image with Claude Code, zsh, git-delta, lint tools.
-- Runs as non-root `node` user.
+- Runs as non-root `kekkai` user (home `/home/kekkai`).
 - Applies a strict iptables/ipset egress firewall: only an allowlist of domains plus GitHub meta CIDRs and the host LAN can leave the sandbox.
 - Mounts your host `~/.claude` (R/W), `~/.gitconfig` (RO), git allowed-signers (RO), and `SSH_AUTH_SOCK` so sessions and signing carry over without copying secrets in.
 - Per-folder bash history in a named volume.
@@ -66,5 +66,5 @@ firewall:
     - releases.hashicorp.com
 
 mounts:
-  - { source: ~/.aws, target: /home/node/.aws, readonly: true, optional: true }
+  - { source: ~/.aws, target: /home/kekkai/.aws, readonly: true, optional: true }
 ```

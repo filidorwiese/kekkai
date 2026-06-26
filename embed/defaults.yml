@@ -32,13 +32,13 @@ image:
   claude_code_version: "latest"
 
 mounts:
-  - { source: "~/.claude", target: "/home/node/.claude" }
-  - { source: "~/.gitconfig", target: "/home/node/.gitconfig", readonly: true, optional: true }
-  - { source: "~/.config/git/allowed_signers", target: "/home/node/.config/git/allowed_signers", readonly: true, optional: true }
+  - { source: "~/.claude", target: "/home/kekkai/.claude" }
+  - { source: "~/.gitconfig", target: "/home/kekkai/.gitconfig", readonly: true, optional: true }
+  - { source: "~/.config/git/allowed_signers", target: "/home/kekkai/.config/git/allowed_signers", readonly: true, optional: true }
   - { source: "${SSH_AUTH_SOCK}", target: "/ssh-agent", optional: true }
 
 env:
-  CLAUDE_CONFIG_DIR: /home/node/.claude
+  CLAUDE_CONFIG_DIR: /home/kekkai/.claude
   NODE_OPTIONS: "--max-old-space-size=4096"
   POWERLEVEL9K_DISABLE_GITSTATUS: "true"
   SSH_AUTH_SOCK: /ssh-agent
