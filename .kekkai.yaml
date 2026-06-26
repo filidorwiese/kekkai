@@ -1,0 +1,8 @@
+image:
+  apt_packages: [golang]
+
+firewall:
+  allowed_domains:
+    - proxy.golang.org
+    - sum.golang.org
+    - objects.githubusercontent.com
