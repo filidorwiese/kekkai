@@ -10,59 +10,50 @@ import (
 	"github.com/filidorwiese/kekkai/internal/docker"
 )
 
-// Doctor runs three tiers of host-environment checks.
-// Tier 1+2 are blocking; Tier 3 are warnings. Returns non-zero if any blocking
-// check fails.
+// Doctor runs host-environment checks and prints a colored pass/warn/fail list.
+// Binary, daemon, and config checks are blocking; the rest are warnings.
+// Returns non-zero if any blocking check fails.
 func Doctor(cwd string) (int, error) {
+	colorOn = wantColor()
+
 	failures := 0
 	warnings := 0
 
-	section("Tier 1: required binaries & docker daemon")
 	for _, bin := range []string{"docker", "git", "curl"} {
 		if _, err := exec.LookPath(bin); err != nil {
-			fail("%s not in PATH", bin)
+			fail("%s not found in PATH", bin)
 			failures++
 		} else {
 			pass("%s in PATH", bin)
 		}
 	}
+
 	if err := docker.Quiet("info"); err != nil {
-		fail("docker daemon not reachable (group membership? socket permissions?)")
+		fail("docker daemon unreachable (group membership? socket permissions?)")
 		failures++
 	} else {
 		pass("docker daemon reachable")
 	}
 
-	section("Tier 2: config parses and validates")
 	home, err := os.UserHomeDir()
+	cfg, cfgErr := (*config.Config)(nil), error(nil)
 	if err != nil {
-		fail("user home dir: %v", err)
+		fail("cannot find home dir: %v", err)
+		failures++
+	} else if cfg, cfgErr = config.Load(home, cwd); cfgErr != nil {
+		fail("config invalid: %v", cfgErr)
 		failures++
 	} else {
-		if _, err := config.Load(home, cwd); err != nil {
-			fail("config: %v", err)
-			failures++
-		} else {
-			pass("merged config (defaults + ./.kekkai.{yml,yaml}) parses and validates")
-		}
+		pass("config parses and validates")
 	}
 
-	section("Tier 3: host environment (warnings only)")
-	cfg, cfgErr := func() (*config.Config, error) {
-		if home == "" {
-			return nil, fmt.Errorf("no home dir")
-		}
-		return config.Load(home, cwd)
-	}()
-	if cfgErr == nil && cfg != nil {
+	if cfg != nil {
 		for _, m := range cfg.Mounts {
 			if m.Skip {
-				warn("mount %s skipped (env var unset, optional)", m.Target)
+				warn("mount %s skipped (optional, env var unset)", m.Target)
 				warnings++
-				continue
-			}
-			if _, err := os.Stat(m.Source); err != nil {
-				warn("mount source missing on host: %s (target %s)", m.Source, m.Target)
+			} else if _, err := os.Stat(m.Source); err != nil {
+				warn("mount source missing: %s", m.Source)
 				warnings++
 			}
 		}
@@ -73,30 +64,65 @@ func Doctor(cwd string) (int, error) {
 			}
 		}
 	}
+
 	if sock := os.Getenv("SSH_AUTH_SOCK"); sock == "" {
-		warn("SSH_AUTH_SOCK is unset (git push from inside the sandbox will fail)")
+		warn("SSH_AUTH_SOCK unset (git push from the sandbox will fail)")
 		warnings++
 	} else if _, err := os.Stat(sock); err != nil {
-		warn("SSH_AUTH_SOCK=%s exists in env but socket is unreachable", sock)
+		warn("SSH_AUTH_SOCK socket unreachable: %s", sock)
 		warnings++
 	}
 
-	fmt.Fprintln(os.Stderr)
+	summary(failures, warnings)
 	if failures > 0 {
-		fmt.Fprintf(os.Stderr, "doctor: %d blocking failure(s), %d warning(s)\n", failures, warnings)
 		return 1, nil
 	}
-	fmt.Fprintf(os.Stderr, "doctor: ok (%d warning(s))\n", warnings)
 	return 0, nil
 }
 
-func section(s string) { fmt.Fprintf(os.Stderr, "\n[ %s ]\n", s) }
-func pass(f string, a ...any) {
-	fmt.Fprintf(os.Stderr, "  ok    "+f+"\n", a...)
+const (
+	cReset  = "\033[0m"
+	cGreen  = "\033[32m"
+	cYellow = "\033[33m"
+	cRed    = "\033[31m"
+	cBold   = "\033[1m"
+)
+
+var colorOn bool
+
+// wantColor enables ANSI output only when stderr is a terminal and the user
+// has not opted out via NO_COLOR / TERM=dumb.
+func wantColor() bool {
+	if os.Getenv("NO_COLOR") != "" || os.Getenv("TERM") == "dumb" {
+		return false
+	}
+	fi, err := os.Stderr.Stat()
+	return err == nil && fi.Mode()&os.ModeCharDevice != 0
 }
-func warn(f string, a ...any) {
-	fmt.Fprintf(os.Stderr, "  warn  "+f+"\n", a...)
+
+func paint(code, s string) string {
+	if !colorOn {
+		return s
+	}
+	return code + s + cReset
 }
-func fail(f string, a ...any) {
-	fmt.Fprintf(os.Stderr, "  FAIL  "+f+"\n", a...)
+
+func pass(f string, a ...any) { item(cGreen, "✓", f, a...) }
+func warn(f string, a ...any) { item(cYellow, "!", f, a...) }
+func fail(f string, a ...any) { item(cRed, "✗", f, a...) }
+
+func item(code, sym, f string, a ...any) {
+	fmt.Fprintln(os.Stderr, "  "+paint(code, sym+" "+fmt.Sprintf(f, a...)))
+}
+
+func summary(failures, warnings int) {
+	fmt.Fprintln(os.Stderr)
+	switch {
+	case failures > 0:
+		fmt.Fprintln(os.Stderr, paint(cRed+cBold, fmt.Sprintf("✗ %d failed, %d warnings", failures, warnings)))
+	case warnings > 0:
+		fmt.Fprintln(os.Stderr, paint(cYellow+cBold, fmt.Sprintf("! all checks passed, %d warnings", warnings)))
+	default:
+		fmt.Fprintln(os.Stderr, paint(cGreen+cBold, "✓ all checks passed"))
+	}
 }
