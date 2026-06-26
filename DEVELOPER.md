@@ -127,7 +127,7 @@ cmd/kekkai/main.go        subcommand dispatch
 internal/config/          load + merge + expand + validate
 internal/docker/          exec.Cmd wrappers, label/image/volume lookup
 internal/image/           render Dockerfile, hash, build
-internal/firewall/        render runtime firewall.conf
+internal/firewall/        render runtime firewall env vars
 internal/runtime/         up / down / shell / ps / prune / doctor / identity
 embed/                    Dockerfile.tmpl, init-firewall.sh, defaults.yml
 install.sh                curl|bash entry

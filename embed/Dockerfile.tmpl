@@ -21,7 +21,7 @@ RUN mkdir /commandhistory \
 
 ENV DEVCONTAINER=true
 
-RUN mkdir -p /workspace /home/kekkai/.claude /etc/kekkai && \
+RUN mkdir -p /workspace /home/kekkai/.claude && \
   chown -R kekkai:kekkai /workspace /home/kekkai/.claude
 
 WORKDIR /workspace

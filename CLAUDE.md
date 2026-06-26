@@ -29,7 +29,7 @@ Top-level keys: `image`, `mounts`, `env`, `firewall`, `claude`, `docker_access`.
 - Tag: `kekkai:<hash>`. Built on demand by `internal/image/build.go` only when `docker image inspect` misses.
 
 ### Runtime inputs (NOT in image hash)
-- `firewall.*` — rendered to `$TMPDIR/kekkai-<name>/firewall.conf`, bind-mounted read-only at `/etc/kekkai/firewall.conf` (sourced by `init-firewall.sh`).
+- `firewall.*` — injected as `docker run -e ALLOW_HOST_LAN=… -e ALLOWED_DOMAINS=…`, read by `init-firewall.sh`. Injected after user `env` so they are authoritative; both keys are reserved (config validation rejects them in `env`). Passed via env, not a bind-mounted file, because host-path binds are unreliable across snap-confined / SELinux / rootless / remote docker daemons.
 - `docker_access` — when true, `runtime/up.go` stats `/var/run/docker.sock`, mounts it into the container, and adds `--group-add <socket-gid>` so the in-container user can write to it. The docker CLI is **always installed** in the image regardless of the flag.
 - `mounts`, `env`, `claude.args` — all applied at `docker run` time.
 

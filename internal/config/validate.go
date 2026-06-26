@@ -28,13 +28,18 @@ func Validate(cfg *Config) error {
 		seen[m.Target] = i
 	}
 
+	reserved := map[string]string{
+		"WORKSPACE":       "injected automatically",
+		"ALLOW_HOST_LAN":  "set via firewall.allow_host_lan",
+		"ALLOWED_DOMAINS": "set via firewall.allowed_domains",
+	}
 	for i, e := range cfg.Env {
 		eq := strings.IndexByte(e, '=')
 		if eq <= 0 {
 			return fmt.Errorf("env[%d] (%q): must be KEY=value", i, e)
 		}
-		if e[:eq] == "WORKSPACE" {
-			return fmt.Errorf("env[%d]: WORKSPACE is injected automatically and cannot be set", i)
+		if why, ok := reserved[e[:eq]]; ok {
+			return fmt.Errorf("env[%d]: %s is %s and cannot be set here", i, e[:eq], why)
 		}
 	}
 

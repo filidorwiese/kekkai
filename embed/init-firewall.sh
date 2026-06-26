@@ -2,14 +2,7 @@
 set -euo pipefail
 IFS=$'\n\t'
 
-CONF=/etc/kekkai/firewall.conf
-if [ ! -f "$CONF" ]; then
-    echo "ERROR: missing $CONF (kekkai should bind-mount this at runtime)"
-    exit 1
-fi
-# shellcheck disable=SC1090
-source "$CONF"
-
+# ALLOW_HOST_LAN and ALLOWED_DOMAINS are injected by kekkai via `docker run -e`.
 : "${ALLOW_HOST_LAN:=1}"
 : "${ALLOWED_DOMAINS:=}"
 

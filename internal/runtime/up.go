@@ -52,18 +52,7 @@ func Up(cwd string, opts UpOptions) (int, error) {
 	}
 	imgHash := strings.TrimPrefix(tag, "kekkai:")
 
-	tmpDir, err := os.MkdirTemp("", "kekkai-"+name+"-")
-	if err != nil {
-		return 0, err
-	}
-	defer os.RemoveAll(tmpDir)
-
-	fwConfPath := filepath.Join(tmpDir, "firewall.conf")
-	if err := firewall.WriteConf(cfg, fwConfPath); err != nil {
-		return 0, fmt.Errorf("render firewall.conf: %w", err)
-	}
-
-	args, err := buildRunArgs(cfg, cwd, name, tag, imgHash, fwConfPath, opts)
+	args, err := buildRunArgs(cfg, cwd, name, tag, imgHash, opts)
 	if err != nil {
 		return 0, err
 	}
@@ -91,7 +80,7 @@ func dockerAccessArgs() ([]string, error) {
 	}, nil
 }
 
-func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash, fwConfPath string, opts UpOptions) ([]string, error) {
+func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash string, opts UpOptions) ([]string, error) {
 	args := []string{"run", "--rm", "-it",
 		"--name", name,
 		"--label", LabelCwd + "=" + cwd,
@@ -113,7 +102,6 @@ func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash, fwConfPath string
 
 	args = append(args,
 		"-v", cwd+":/workspace",
-		"-v", fwConfPath+":/etc/kekkai/firewall.conf:ro",
 		"-v", HistoryVolume(cwd)+":/commandhistory",
 	)
 
@@ -139,6 +127,12 @@ func buildRunArgs(cfg *config.Config, cwd, name, tag, imgHash, fwConfPath string
 		args = append(args, "-e", e)
 	}
 	args = append(args, "-e", "WORKSPACE="+filepath.Base(cwd))
+
+	// Firewall settings are injected last so they are authoritative over any
+	// user env. init-firewall.sh reads ALLOW_HOST_LAN and ALLOWED_DOMAINS.
+	for _, e := range firewall.EnvVars(cfg) {
+		args = append(args, "-e", e)
+	}
 
 	claudeArgs := cfg.Claude.Args
 	if len(opts.ExtraClaude) > 0 {
