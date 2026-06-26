@@ -16,28 +16,27 @@ func Config(cwd string) error {
 		return err
 	}
 
-	// Sources surfaces the same ambiguity error Load would; resolve first so we
-	// can report which files contribute even when the merge later fails.
-	global, project, srcErr := config.Sources(home, cwd)
+	// Source surfaces the same ambiguity error Load would; resolve first so we
+	// can report which file contributes even when the merge later fails.
+	project, srcErr := config.Source(cwd)
 
 	cfg, err := config.Load(home, cwd)
 	if err != nil {
 		if srcErr == nil {
-			printSources(global, project)
+			printSources(project)
 		}
 		return fmt.Errorf("invalid configuration: %w", err)
 	}
 
-	printSources(global, project)
+	printSources(project)
 	printConfig(cfg)
 	fmt.Println("Configuration is valid.")
 	return nil
 }
 
-func printSources(global, project string) {
+func printSources(project string) {
 	fmt.Println("Sources (merged in order):")
 	fmt.Printf("  defaults  %s\n", "embedded")
-	fmt.Printf("  global    %s\n", orNone(global))
 	fmt.Printf("  project   %s\n", orNone(project))
 	fmt.Println()
 }

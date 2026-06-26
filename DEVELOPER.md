@@ -59,7 +59,7 @@ docker image rm kekkai:<hash>   # see `docker images kekkai`
 ```
 
 ### Config change (firewall, mounts, env, docker_access)
-Runtime-only, no rebuild. Edit `embed/defaults.yml` (then rebuild the binary), `~/.kekkai.yml`, or `./.kekkai.yml`. `kekkai down && kekkai up` picks it up.
+Runtime-only, no rebuild. Edit `embed/defaults.yml` (then rebuild the binary) or `./.kekkai.yml`. `kekkai down && kekkai up` picks it up.
 
 ### Test a project-level override
 Drop a `./.kekkai.yml` in the target project, e.g.:
@@ -93,7 +93,7 @@ docker ps                                # only works if docker_access: true
 - **`up` refuses with "already exists"**: a previous container is still around. `kekkai down` or `kekkai up --force`.
 - **Firewall verification fails on first build**: the script's own check tries `api.github.com/zen`; the host must be able to reach GitHub during image build. Not a kekkai bug.
 - **`docker_access: true` errors with "requires /var/run/docker.sock"**: the host socket is at a non-default path (rootless docker?). Not supported yet.
-- **`KnownFields` strict YAML error in `~/.kekkai.yml`**: unknown key. Line number is in the error; fix the typo.
+- **`KnownFields` strict YAML error in `./.kekkai.yml`**: unknown key. Line number is in the error; fix the typo.
 
 ## Release dry-run
 

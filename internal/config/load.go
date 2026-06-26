@@ -13,20 +13,13 @@ import (
 // ConfigBaseName is the config filename without extension; both .yml and .yaml are accepted.
 const ConfigBaseName = ".kekkai"
 
-// Load merges defaults → ~/.kekkai.{yml,yaml} → ./.kekkai.{yml,yaml}.
-// projectDir is typically the current working directory.
+// Load merges embedded defaults → ./.kekkai.{yml,yaml}.
+// projectDir is typically the current working directory; home is used to expand
+// ~ in the merged result.
 func Load(home string, projectDir string) (*Config, error) {
 	cfg, err := decodeDefaults()
 	if err != nil {
 		return nil, fmt.Errorf("decode embedded defaults: %w", err)
-	}
-
-	globalPath, err := resolveConfigPath(home)
-	if err != nil {
-		return nil, err
-	}
-	if err := mergeFile(cfg, globalPath); err != nil {
-		return nil, err
 	}
 
 	projectPath, err := resolveConfigPath(projectDir)
@@ -48,17 +41,11 @@ func Load(home string, projectDir string) (*Config, error) {
 	return cfg, nil
 }
 
-// Sources returns the global and project config file paths that Load merges on
-// top of the embedded defaults. An empty string means no file was found for
-// that layer. It surfaces the same ambiguity error as Load (both extensions).
-func Sources(home, projectDir string) (global, project string, err error) {
-	if global, err = resolveConfigPath(home); err != nil {
-		return "", "", err
-	}
-	if project, err = resolveConfigPath(projectDir); err != nil {
-		return "", "", err
-	}
-	return global, project, nil
+// Source returns the project config file path that Load merges on top of the
+// embedded defaults. An empty string means no file was found. It surfaces the
+// same ambiguity error as Load (both extensions present).
+func Source(projectDir string) (project string, err error) {
+	return resolveConfigPath(projectDir)
 }
 
 // resolveConfigPath probes dir for .kekkai.yml and .kekkai.yaml. It returns the

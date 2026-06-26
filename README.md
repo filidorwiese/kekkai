@@ -42,13 +42,12 @@ kekkai version
 
 ## Configuration
 
-Three layers, merged in order:
+Two layers, merged in order:
 
 1. Built-in defaults (baked into the binary).
-2. `~/.kekkai.yaml` — user-wide overrides.
-3. `./.kekkai.yaml` — project overrides.
+2. `./.kekkai.yaml` — project overrides.
 
-Drop any subset of the keys below into either file. Everything is optional — omit a key to keep the default.
+Drop any subset of the keys below into the project file. Everything is optional — omit a key to keep the default. Run `kekkai config` to see the merged result.
 
 ```yaml
 # ---- image (bake-time — changing any value triggers a rebuild) ----
@@ -131,7 +130,7 @@ firewall:
 
 ### Merge strategy
 
-How merging works of built-in, ~/.kekkai.yaml and ./.kekkai.yaml:
+How merging works of built-in defaults and ./.kekkai.yaml:
 
 - **Lists** under `mounts`, `env`, `firewall.allowed_domains`, and `image.apt_packages` are **added to** the defaults - your entries pile on, they don't replace.
 - `env` entries are `KEY=value`; if the same `KEY` appears in a later layer it **overrides** the earlier one.

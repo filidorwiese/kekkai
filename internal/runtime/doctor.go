@@ -43,7 +43,7 @@ func Doctor(cwd string) (int, error) {
 			fail("config: %v", err)
 			failures++
 		} else {
-			pass("merged config (defaults + ~/.kekkai.{yml,yaml} + ./.kekkai.{yml,yaml}) parses and validates")
+			pass("merged config (defaults + ./.kekkai.{yml,yaml}) parses and validates")
 		}
 	}
 
