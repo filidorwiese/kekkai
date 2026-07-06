@@ -23,7 +23,7 @@ the rendered image inputs.
 | `network.allowed_domains` | []string | no | `[]` | no whitespace |
 | `secrets.hide` | []string | no | `[]` | exact paths relative to workspace root, no globs |
 | `limits.cpus` | number | no | unset | positive |
-| `limits.memory` | string | no | unset | docker size string (e.g. `8g`) |
+| `limits.memory` | string | no | unset | matches `^[0-9]+(\.[0-9]+)?[bkmg]?$` case-insensitive (docker `--memory` grammar, e.g. `8g`) |
 
 Document-level rules (§4.1, §4.4):
 
@@ -45,11 +45,12 @@ Document-level rules (§4.1, §4.4):
 
 | Value | Formula | Used by |
 |-------|---------|---------|
-| Container name | `kekkai-<sanitized-basename(PWD)>-<sha256(PWD)[:8]>` | up |
+| Container name | `kekkai-<sanitized-basename(PWD)>-<sha256(PWD)[:8]>`; sanitized = lowercase, chars outside `[a-z0-9_.-]` → `-` | up |
 | Authoritative key | label `kekkai.cwd=<PWD>` | up, down, shell, ps, prune |
 | Extra labels | `kekkai.image_hash`, `kekkai.version` | ps, prune |
 | History volume | `kekkai-history-<sha256(PWD)[:8]>` | up, prune --volumes |
 | Image tag | `kekkai:<sha256(rendered Dockerfile + init-firewall.sh)[:12]>` | up, prune |
+| Config hash (image label `kekkai.config_hash`) | `sha256(base_image + "\n" + apt packages + "\n" + init-firewall.sh)[:12]` — version-independent; keys the §6.2 offline fallback only, never builds | up |
 
 ## Image bake inputs (§6.1) — nothing else enters the hash
 

@@ -46,8 +46,10 @@ alternatives so downstream phases don't re-litigate them.
 ## R5. `claude.version: latest` resolution
 
 - **Decision**: GET `https://registry.npmjs.org/@anthropic-ai/claude-code/latest` (small JSON,
-  read `.version`) before rendering. On failure: newest existing `kekkai:*` image reused with a
-  warning; hard error only if none exists (§6.2).
+  read `.version`) before rendering. On failure: reuse the newest existing `kekkai:*` image whose
+  `kekkai.config_hash` label (version-independent bake-input hash, §6.1) matches the current
+  config, with a warning; no match → hard error (§6.2). The label makes "for this config"
+  resolvable when the full hash can't be computed (version unknown).
 - **Rationale**: hash must track Claude releases; the `/latest` endpoint returns a tiny document
   vs the multi-MB full packument.
 - **Alternatives**: `npm view` on host (requires node on host — new prerequisite, rejected);

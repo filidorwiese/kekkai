@@ -115,7 +115,7 @@ limits:                          # optional; unlimited when omitted
 - `network.allow_all: true` combined with any other `network` key — validation error (contradictory intent; the escape hatch must be deliberate and alone). Omitted `network` block = firewall on, builtins only.
 - `network.allowed_cidrs`: each entry must parse as CIDR.
 - `network.allowed_domains`: no whitespace.
-- `limits.cpus` positive number; `limits.memory` docker-accepted size string.
+- `limits.cpus` positive number; `limits.memory` must match `^[0-9]+(\.[0-9]+)?[bkmg]?$` (case-insensitive — docker's `--memory` grammar, checked here to keep failures pre-docker).
 
 ### 4.5 `kekkai init`
 
@@ -156,11 +156,13 @@ Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsut
 
 Dockerfile template (`embed/Dockerfile.tmpl`) rendered with: `image.base_image`, builtin + user `apt_packages`, resolved `claude.version`. Image hash = `sha256(rendered Dockerfile + embed/init-firewall.sh)[:12]`, tag `kekkai:<hash>`. Built on demand only when `docker image inspect` misses.
 
+Each image additionally carries label `kekkai.config_hash = sha256(image.base_image + "\n" + builtin+user apt_packages + "\n" + embed/init-firewall.sh)[:12]` — the bake inputs *minus* the claude version. It exists solely so the §6.2 offline fallback can find images built for this config; it never keys builds.
+
 Everything else (mounts, env, network, secrets, limits, claude.args) is runtime input — must never trigger a rebuild, must never enter the hash.
 
 ### 6.2 `claude.version: latest` resolution
 
-At `up`, "latest" is resolved to the concrete current version via the npm registry **before** rendering, so the hash tracks Claude releases and a new release triggers a rebuild. Offline/registry-failure fallback: reuse the newest existing `kekkai:*` image for this config, with a warning. Pinned versions render as-is.
+At `up`, "latest" is resolved to the concrete current version via the npm registry **before** rendering, so the hash tracks Claude releases and a new release triggers a rebuild. Offline/registry-failure fallback: reuse the newest (by creation date) existing `kekkai:*` image whose `kekkai.config_hash` label matches the current config (§6.1), with a warning; none matching → hard error. Pinned versions render as-is.
 
 ### 6.3 Dockerfile contract
 
@@ -174,7 +176,7 @@ At `up`, "latest" is resolved to the concrete current version via the npm regist
 
 ### 7.1 Container identity
 
-- Name: `kekkai-<sanitized-basename($PWD)>-<sha256($PWD)[:8]>`.
+- Name: `kekkai-<sanitized-basename($PWD)>-<sha256($PWD)[:8]>`. Sanitized = basename lowercased, every char outside `[a-z0-9_.-]` replaced with `-` (docker name charset; the `kekkai-` prefix guarantees a valid leading char).
 - Authoritative key: label `kekkai.cwd=$PWD` — `down`/`shell`/`prune` resolve by label, never by name. Also labels `kekkai.image_hash`, `kekkai.version`. Identity logic lives in `internal/runtime/identity.go`; any change updates every consumer.
 
 ### 7.2 Lifecycle

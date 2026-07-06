@@ -8,7 +8,9 @@
   `docker image inspect` misses. Bake inputs: base image, builtin+user apt packages, resolved
   claude version — nothing else (§6.1).
 - `latest` resolved via npm registry pre-render; registry failure → newest existing `kekkai:*`
-  image + warning (§6.2).
+  image with matching `kekkai.config_hash` label + warning, none → hard error (§6.2). The label
+  (version-independent bake-input hash: base image + apt packages + firewall script) is baked
+  into every image; it never keys builds (§6.1).
 - Dockerfile guarantees (§6.3): base `node:*`; `node` user renamed `kekkai` (UID kept), home
   `/home/kekkai`; npm global prefix `/usr/local/share/npm-global` with claude installed; zsh
   history at `/commandhistory/.zsh_history`; `init-firewall.sh` at `/usr/local/bin/`; sudoers

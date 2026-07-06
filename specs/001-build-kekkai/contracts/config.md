@@ -29,7 +29,8 @@
 7. `network.allow_all: true` with any other `network` key set → error. Omitted `network` block
    → firewall on, builtins only.
 8. Each `allowed_cidrs` entry parses as CIDR; `allowed_domains` entries contain no whitespace.
-9. `limits.cpus` > 0; `limits.memory` docker-accepted size string.
+9. `limits.cpus` > 0; `limits.memory` matches `^[0-9]+(\.[0-9]+)?[bkmg]?$` case-insensitive
+   (docker `--memory` grammar, checked pre-docker).
 
 ## Starter file (`kekkai init`)
 
