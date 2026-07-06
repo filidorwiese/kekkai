@@ -1,0 +1,11 @@
+# built binaries
+/kekkai
+/dist/
+
+# local build artifacts
+*.log
+*.tmp
+
+# editors
+.idea/
+.vscode/
