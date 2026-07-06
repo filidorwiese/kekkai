@@ -1,50 +1,61 @@
-# [PROJECT_NAME] Constitution
-<!-- Example: Spec Constitution, TaskFlow Constitution, etc. -->
+<!--
+Sync Impact Report
+- Version change: none → 1.0.0 (initial ratification)
+- Modified principles: n/a (initial adoption)
+- Added sections: Core Principles (4), Constraints, Governance
+- Removed sections: template placeholder for principle 5 (bare-minimum scope)
+- Templates: ✅ .specify/templates/plan-template.md (generic Constitution Check gate, compatible)
+             ✅ .specify/templates/spec-template.md (no constitution references, compatible)
+             ✅ .specify/templates/tasks-template.md (no constitution references, compatible)
+- Follow-up TODOs: none
+-->
+
+# Kekkai Constitution
 
 ## Core Principles
 
-### [PRINCIPLE_1_NAME]
-<!-- Example: I. Library-First -->
-[PRINCIPLE_1_DESCRIPTION]
-<!-- Example: Every feature starts as a standalone library; Libraries must be self-contained, independently testable, documented; Clear purpose required - no organizational-only libraries -->
+### I. Spec-First
 
-### [PRINCIPLE_2_NAME]
-<!-- Example: II. CLI Interface -->
-[PRINCIPLE_2_DESCRIPTION]
-<!-- Example: Every library exposes functionality via CLI; Text in/out protocol: stdin/args → stdout, errors → stderr; Support JSON + human-readable formats -->
+`SPECIFICATION.md` is the single source of truth for kekkai's design. Design changes MUST
+land in the spec first, in the same commit as the code. README stays the user-facing
+digest of the spec, never a second source of design.
 
-### [PRINCIPLE_3_NAME]
-<!-- Example: III. Test-First (NON-NEGOTIABLE) -->
-[PRINCIPLE_3_DESCRIPTION]
-<!-- Example: TDD mandatory: Tests written → User approved → Tests fail → Then implement; Red-Green-Refactor cycle strictly enforced -->
+### II. Container Is the Security Boundary
 
-### [PRINCIPLE_4_NAME]
-<!-- Example: IV. Integration Testing -->
-[PRINCIPLE_4_DESCRIPTION]
-<!-- Example: Focus areas requiring integration tests: New library contract tests, Contract changes, Inter-service communication, Shared schemas -->
+Docker is the boundary; Claude runs fully autonomous inside it. Anything that punches
+through the boundary is rejected, not deferred: no docker socket in the sandbox, no sudo
+grants beyond the firewall script, firewall verification never disabled. New network
+destinations are opened via user config only, never by relaxing `init-firewall.sh`.
+Items in the spec's out-of-scope list (§11) MUST NOT be added without prior discussion.
 
-### [PRINCIPLE_5_NAME]
-<!-- Example: V. Observability, VI. Versioning & Breaking Changes, VII. Simplicity -->
-[PRINCIPLE_5_DESCRIPTION]
-<!-- Example: Text I/O ensures debuggability; Structured logging required; Or: MAJOR.MINOR.BUILD format; Or: Start simple, YAGNI principles -->
+### III. Minimal Surface
 
-## [SECTION_2_NAME]
-<!-- Example: Additional Constraints, Security Requirements, Performance Standards, etc. -->
+One static Go binary (`./cmd/kekkai`), stdlib `flag`, Linux amd64/arm64 only. One config
+file, no layered or user-global config, all defaults as code constants. Less code = less
+debt: every new subcommand, config key, or dependency needs justification against the spec.
 
-[SECTION_2_CONTENT]
-<!-- Example: Technology stack requirements, compliance standards, deployment policies, etc. -->
+### IV. End-to-End Validation
 
-## [SECTION_3_NAME]
-<!-- Example: Development Workflow, Review Process, Quality Gates, etc. -->
+Kekkai is distribution infrastructure; no unit-test suite of consequence. Validation is
+end-to-end against a real docker daemon: build the binary, run `kekkai up` in a real
+project, verify container, mounts, and firewall probes behave as specified. Firewall
+verification probes (§9.6) are part of every startup and MUST never be skipped.
 
-[SECTION_3_CONTENT]
-<!-- Example: Code review requirements, testing gates, deployment approval process, etc. -->
+## Constraints
+
+- Go, static binary, targets linux/amd64 + linux/arm64.
+- Host prerequisites: Docker, git, curl. No other host dependencies.
+- Config: strict-parsed `./.kekkai.yaml`, full validation before any docker work,
+  all violations reported in one pass.
+- Image hash derives from bake-time inputs only (§6.1); runtime config MUST never
+  trigger a rebuild.
 
 ## Governance
-<!-- Example: Constitution supersedes all other practices; Amendments require documentation, approval, migration plan -->
 
-[GOVERNANCE_RULES]
-<!-- Example: All PRs/reviews must verify compliance; Complexity must be justified; Use [GUIDANCE_FILE] for runtime development guidance -->
+This constitution supersedes ad-hoc practice. Amendments: update this file and
+`SPECIFICATION.md` together, bump version per semver (MAJOR: principle removal or
+redefinition; MINOR: new principle or section; PATCH: clarification). PRs and reviews
+MUST verify compliance, in particular Principle II (boundary integrity) and the spec's
+out-of-scope list.
 
-**Version**: [CONSTITUTION_VERSION] | **Ratified**: [RATIFICATION_DATE] | **Last Amended**: [LAST_AMENDED_DATE]
-<!-- Example: Version: 2.1.1 | Ratified: 2025-06-13 | Last Amended: 2025-07-16 -->
+**Version**: 1.0.0 | **Ratified**: 2026-07-06 | **Last Amended**: 2026-07-06
