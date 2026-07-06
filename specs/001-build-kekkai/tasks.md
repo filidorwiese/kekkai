@@ -26,9 +26,9 @@ Single Go module at repo root per plan.md: `cmd/kekkai/`, `internal/{config,runt
 
 **Purpose**: Go module and skeleton matching plan.md structure
 
-- [ ] T001 Initialize Go module `go.mod` (module kekkai, Go 1.24) and add `gopkg.in/yaml.v3`
-- [ ] T002 [P] Create directory skeleton `cmd/kekkai/`, `internal/config/`, `internal/runtime/`, `internal/docker/`, `embed/` with placeholder `main.go` that prints usage
-- [ ] T003 [P] Add `.gitignore` (built binaries, `/tmp` artifacts) at repo root
+- [X] T001 Initialize Go module `go.mod` (module kekkai, Go 1.24) and add `gopkg.in/yaml.v3`
+- [X] T002 [P] Create directory skeleton `cmd/kekkai/`, `internal/config/`, `internal/runtime/`, `internal/docker/`, `embed/` with placeholder `main.go` that prints usage
+- [X] T003 [P] Add `.gitignore` (built binaries, `/tmp` artifacts) at repo root
 
 ---
 
@@ -38,12 +38,12 @@ Single Go module at repo root per plan.md: `cmd/kekkai/`, `internal/{config,runt
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete
 
-- [ ] T004 Implement identity derivation in `internal/runtime/identity.go`: container name `kekkai-<sanitized-basename>-<sha256(PWD)[:8]>` (sanitize: lowercase, chars outside `[a-z0-9_.-]` → `-`), authoritative label `kekkai.cwd`, labels `kekkai.image_hash`/`kekkai.version`, history volume name, image tag `kekkai:<sha256(rendered Dockerfile + init-firewall.sh)[:12]>`, version-independent config hash for image label `kekkai.config_hash` (data-model.md "Derived identity")
-- [ ] T005 [P] Implement config schema + loading in `internal/config/config.go`: structs per data-model.md, `.kekkai.{yml,yaml}` discovery (both → error, none → exact error from contracts/cli.md), strict `KnownFields(true)` decode, `~`/`${VAR}` expansion and target inference (§4.3)
-- [ ] T006 Implement validation in `internal/config/validate.go`: all rules from contracts/config.md (base_image `node:*`, claude.version, mount source/duplicate targets, unset `${VAR}` vs optional, reserved env keys, ssh_agent⇒git.enabled, allow_all exclusivity, CIDR parse, domain whitespace, limits) plus legacy-key targeted error; collect and report ALL violations in one pass
-- [ ] T007 [P] Implement docker CLI helpers in `internal/docker/cli.go`: image inspect/build, container run/stop/rm/ps by label, volume ls/rm — all shelling out to `docker` (research.md R1)
-- [ ] T008 [P] Implement interactive exec with SIGINT/SIGTERM forwarding in `internal/docker/exec.go` (§7.2, research.md R9)
-- [ ] T009 Implement dispatch in `cmd/kekkai/main.go`: stdlib `flag` per subcommand, subcommands exactly per contracts/cli.md, `version` via `-ldflags -X main.version`, `help` usage, unknown subcommand → usage + exit ≠0
+- [X] T004 Implement identity derivation in `internal/runtime/identity.go`: container name `kekkai-<sanitized-basename>-<sha256(PWD)[:8]>` (sanitize: lowercase, chars outside `[a-z0-9_.-]` → `-`), authoritative label `kekkai.cwd`, labels `kekkai.image_hash`/`kekkai.version`, history volume name, image tag `kekkai:<sha256(rendered Dockerfile + init-firewall.sh)[:12]>`, version-independent config hash for image label `kekkai.config_hash` (data-model.md "Derived identity")
+- [X] T005 [P] Implement config schema + loading in `internal/config/config.go`: structs per data-model.md, `.kekkai.{yml,yaml}` discovery (both → error, none → exact error from contracts/cli.md), strict `KnownFields(true)` decode, `~`/`${VAR}` expansion and target inference (§4.3)
+- [X] T006 Implement validation in `internal/config/validate.go`: all rules from contracts/config.md (base_image `node:*`, claude.version, mount source/duplicate targets, unset `${VAR}` vs optional, reserved env keys, ssh_agent⇒git.enabled, allow_all exclusivity, CIDR parse, domain whitespace, limits) plus legacy-key targeted error; collect and report ALL violations in one pass
+- [X] T007 [P] Implement docker CLI helpers in `internal/docker/cli.go`: image inspect/build, container run/stop/rm/ps by label, volume ls/rm — all shelling out to `docker` (research.md R1)
+- [X] T008 [P] Implement interactive exec with SIGINT/SIGTERM forwarding in `internal/docker/exec.go` (§7.2, research.md R9)
+- [X] T009 Implement dispatch in `cmd/kekkai/main.go`: stdlib `flag` per subcommand, subcommands exactly per contracts/cli.md, `version` via `-ldflags -X main.version`, `help` usage, unknown subcommand → usage + exit ≠0
 
 **Checkpoint**: `go build ./... && go vet ./...` pass; `kekkai version|help` work
 
@@ -57,12 +57,12 @@ Single Go module at repo root per plan.md: `cmd/kekkai/`, `internal/{config,runt
 **Independent Test**: quickstart.md Scenarios 1, 2, 7 — init/up happy path, fail-early
 validation, version-resolution fallback
 
-- [ ] T010 [P] [US1] Author `embed/Dockerfile.tmpl` per contracts/sandbox.md: node base, user rename node→kekkai (UID kept), builtin apt set §5.1 + user packages, npm global prefix + claude install at resolved version, zsh history wiring, copy init-firewall.sh, single sudoers grant, no docker CLI
-- [ ] T011 [P] [US1] Author `embed/init-firewall.sh` base per contracts/sandbox.md: flush preserving Docker DNS NAT, loopback/udp53/established, bridge subnet from own route, ipset with builtin hosts (api.anthropic.com, statsig.anthropic.com via dig), DROP default, icmp-admin-prohibited reject, verification probes (example.com FAILS, api.anthropic.com SUCCEEDS, abort on violation)
-- [ ] T012 [P] [US1] Implement `kekkai init` in `internal/runtime/init.go`: starter file per contracts/config.md (active values = defaults, optional sections commented with README-grade comments, GH_TOKEN example beside allow_github), error if config exists
-- [ ] T013 [US1] Implement image pipeline in `internal/runtime/up.go`: `go:embed` assets, resolve `claude.version: latest` via `registry.npmjs.org/@anthropic-ai/claude-code/latest` with fallback to newest existing `kekkai:*` image matching the `kekkai.config_hash` label + warning, none → hard error (research.md R5), render template, hash-tag, label with config hash, build only on inspect miss, `--verbose` plain progress
-- [ ] T014 [US1] Implement run-args assembly + orchestration in `internal/runtime/up.go`: validate-first (abort pre-docker), refuse existing container for `kekkai.cwd` unless `--force`, caps NET_ADMIN/NET_RAW, builtin mounts ($PWD→/workspace rw, ~/.claude rw, history volume), builtin env §5.3, `CLAUDE_ARGS` (default or claude.args verbatim + args after `--`), CMD `sudo /usr/local/bin/init-firewall.sh && exec claude $CLAUDE_ARGS`, `docker run --rm -it` via exec.go, labels from identity.go
-- [ ] T015 [US1] e2e validate: run quickstart.md Scenarios 1, 2, 7 against a real docker daemon; fix or reconcile SPECIFICATION.md in same commit on any deviation
+- [X] T010 [P] [US1] Author `embed/Dockerfile.tmpl` per contracts/sandbox.md: node base, user rename node→kekkai (UID kept), builtin apt set §5.1 + user packages, npm global prefix + claude install at resolved version, zsh history wiring, copy init-firewall.sh, single sudoers grant, no docker CLI
+- [X] T011 [P] [US1] Author `embed/init-firewall.sh` base per contracts/sandbox.md: flush preserving Docker DNS NAT, loopback/udp53/established, bridge subnet from own route, ipset with builtin hosts (api.anthropic.com, statsig.anthropic.com via dig), DROP default, icmp-admin-prohibited reject, verification probes (example.com FAILS, api.anthropic.com SUCCEEDS, abort on violation)
+- [X] T012 [P] [US1] Implement `kekkai init` in `internal/runtime/init.go`: starter file per contracts/config.md (active values = defaults, optional sections commented with README-grade comments, GH_TOKEN example beside allow_github), error if config exists
+- [X] T013 [US1] Implement image pipeline in `internal/runtime/up.go`: `go:embed` assets, resolve `claude.version: latest` via `registry.npmjs.org/@anthropic-ai/claude-code/latest` with fallback to newest existing `kekkai:*` image matching the `kekkai.config_hash` label + warning, none → hard error (research.md R5), render template, hash-tag, label with config hash, build only on inspect miss, `--verbose` plain progress
+- [X] T014 [US1] Implement run-args assembly + orchestration in `internal/runtime/up.go`: validate-first (abort pre-docker), refuse existing container for `kekkai.cwd` unless `--force`, caps NET_ADMIN/NET_RAW, builtin mounts ($PWD→/workspace rw, ~/.claude rw, history volume), builtin env §5.3, `CLAUDE_ARGS` (default or claude.args verbatim + args after `--`), CMD `sudo /usr/local/bin/init-firewall.sh && exec claude $CLAUDE_ARGS`, `docker run --rm -it` via exec.go, labels from identity.go
+- [X] T015 [US1] e2e validate: run quickstart.md Scenarios 1, 2, 7 against a real docker daemon; fix or reconcile SPECIFICATION.md in same commit on any deviation
 
 **Checkpoint**: MVP — autonomous locked-down session works end to end
 
@@ -76,9 +76,9 @@ hatch, all probe-verified
 **Independent Test**: quickstart.md Scenario 3 — default deny, github/domain/CIDR allowances,
 allow_all warning
 
-- [ ] T016 [US2] Inject firewall env in `internal/runtime/up.go`: `ALLOW_ALL`, `ALLOW_GITHUB`, `ALLOWED_DOMAINS`, `ALLOWED_CIDRS` from `network.*`, applied after user env so firewall vars stay authoritative (§7.3; env-not-bindmount per research.md R6)
-- [ ] T017 [US2] Extend `embed/init-firewall.sh`: `ALLOW_ALL=1` → no restrictions + prominent warning + skip verification; `ALLOWED_DOMAINS` dig once warn+skip on failure; `ALLOWED_CIDRS` literals; `ALLOW_GITHUB=1` → api.github.com/meta CIDRs (jq-validated, aggregated, fetch failure fatal, pre-lockdown) + `https://api.github.com/zen` probe
-- [ ] T018 [US2] e2e validate: run quickstart.md Scenario 3; verify no blanket tcp/22, LAN unreachable without CIDR entry
+- [X] T016 [US2] Inject firewall env in `internal/runtime/up.go`: `ALLOW_ALL`, `ALLOW_GITHUB`, `ALLOWED_DOMAINS`, `ALLOWED_CIDRS` from `network.*`, applied after user env so firewall vars stay authoritative (§7.3; env-not-bindmount per research.md R6)
+- [X] T017 [US2] Extend `embed/init-firewall.sh`: `ALLOW_ALL=1` → no restrictions + prominent warning + skip verification; `ALLOWED_DOMAINS` dig once warn+skip on failure; `ALLOWED_CIDRS` literals; `ALLOW_GITHUB=1` → api.github.com/meta CIDRs (jq-validated, aggregated, fetch failure fatal, pre-lockdown) + `https://api.github.com/zen` probe
+- [X] T018 [US2] e2e validate: run quickstart.md Scenario 3; verify no blanket tcp/22, LAN unreachable without CIDR entry
 
 **Checkpoint**: Full network contract (contracts/sandbox.md "Firewall") holds
 
@@ -90,10 +90,10 @@ allow_all warning
 
 **Independent Test**: quickstart.md Scenarios 4, 5 — secrets/env/limits and git modes
 
-- [ ] T019 [US3] Implement git mounts in `internal/runtime/up.go` per §5.2: enabled → `~/.gitconfig` ro; disabled/omitted → `$PWD/.git` ro bind when repo (skip otherwise); ssh_agent → `$SSH_AUTH_SOCK`→`/ssh-agent` + env + allowed_signers ro optional, hard error at up when host socket unset
-- [ ] T020 [US3] Implement user disk.mounts, user env, and `limits` (`--cpus`/`--memory`) in `internal/runtime/up.go`: assembly order per data-model.md "Container run inputs"; optional-missing source → skip+notice, non-optional missing → warn
-- [ ] T021 [US3] Implement secrets shadowing in `internal/runtime/up.go` per §8: host stat before run; file → `/dev/null:<path>:ro`, dir → tmpfs, missing → warn+skip; never create host artifacts
-- [ ] T022 [US3] e2e validate: run quickstart.md Scenarios 4, 5; confirm no-commit mode unbreakable from inside (no SYS_ADMIN remount)
+- [X] T019 [US3] Implement git mounts in `internal/runtime/up.go` per §5.2: enabled → `~/.gitconfig` ro; disabled/omitted → `$PWD/.git` ro bind when repo (skip otherwise); ssh_agent → `$SSH_AUTH_SOCK`→`/ssh-agent` + env + allowed_signers ro optional, hard error at up when host socket unset
+- [X] T020 [US3] Implement user disk.mounts, user env, and `limits` (`--cpus`/`--memory`) in `internal/runtime/up.go`: assembly order per data-model.md "Container run inputs"; optional-missing source → skip+notice, non-optional missing → warn
+- [X] T021 [US3] Implement secrets shadowing in `internal/runtime/up.go` per §8: host stat before run; file → `/dev/null:<path>:ro`, dir → tmpfs, missing → warn+skip; never create host artifacts
+- [X] T022 [US3] e2e validate: run quickstart.md Scenarios 4, 5; confirm no-commit mode unbreakable from inside (no SYS_ADMIN remount)
 
 **Checkpoint**: All disk/secrets/git/env/limits knobs behave per contract
 
@@ -105,11 +105,11 @@ allow_all warning
 
 **Independent Test**: quickstart.md Scenario 6 — two concurrent projects
 
-- [ ] T023 [P] [US4] Implement `kekkai down` in `internal/runtime/down.go`: stop+remove by label, exit 0 with report when nothing found
-- [ ] T024 [P] [US4] Implement `kekkai shell` in `internal/runtime/shell.go`: `docker exec -it <container> zsh` resolved by label, error when no running sandbox
-- [ ] T025 [P] [US4] Implement `kekkai ps` in `internal/runtime/ps.go`: list by kekkai labels — name, cwd, image hash, status
-- [ ] T026 [US4] Implement `kekkai prune` in `internal/runtime/prune.go`: orphan containers + unused `kekkai:*` images, `--volumes` adds history volumes, confirmation prompt unless `--yes`, never touches running sandboxes' resources
-- [ ] T027 [US4] e2e validate: run quickstart.md Scenario 6 with two projects
+- [X] T023 [P] [US4] Implement `kekkai down` in `internal/runtime/down.go`: stop+remove by label, exit 0 with report when nothing found
+- [X] T024 [P] [US4] Implement `kekkai shell` in `internal/runtime/shell.go`: `docker exec -it <container> zsh` resolved by label, error when no running sandbox
+- [X] T025 [P] [US4] Implement `kekkai ps` in `internal/runtime/ps.go`: list by kekkai labels — name, cwd, image hash, status
+- [X] T026 [US4] Implement `kekkai prune` in `internal/runtime/prune.go`: orphan containers + unused `kekkai:*` images, `--volumes` adds history volumes, confirmation prompt unless `--yes`, never touches running sandboxes' resources
+- [X] T027 [US4] e2e validate: run quickstart.md Scenario 6 with two projects
 
 **Checkpoint**: Day-2 operations complete
 
@@ -121,8 +121,8 @@ allow_all warning
 
 **Independent Test**: quickstart.md Scenario 8 — tag on fork produces release; install.sh yields working binary
 
-- [ ] T028 [P] [US5] Author `.github/workflows/release.yml`: on `v*` tag — matrix GOOS=linux GOARCH={amd64,arm64}, CGO_ENABLED=0, `-ldflags "-X main.version=<tag>"`, tar.gz per arch, `SHA256SUMS`, GitHub release (research.md R11)
-- [ ] T029 [P] [US5] Author `install.sh` at repo root: latest tag via GH API (override `KEKKAI_VERSION`), arch detection (amd64/arm64), download + checksum verify, install to `~/.local/bin/`, PATH hint
+- [X] T028 [P] [US5] Author `.github/workflows/release.yml`: on `v*` tag — matrix GOOS=linux GOARCH={amd64,arm64}, CGO_ENABLED=0, `-ldflags "-X main.version=<tag>"`, tar.gz per arch, `SHA256SUMS`, GitHub release (research.md R11)
+- [X] T029 [P] [US5] Author `install.sh` at repo root: latest tag via GH API (override `KEKKAI_VERSION`), arch detection (amd64/arm64), download + checksum verify, install to `~/.local/bin/`, PATH hint
 - [ ] T030 [US5] e2e validate: run quickstart.md Scenario 8 (rc tag on fork + clean-machine install)
 
 **Checkpoint**: Distribution pipeline proven
@@ -131,8 +131,8 @@ allow_all warning
 
 ## Phase 8: Polish & Cross-Cutting Concerns
 
-- [ ] T031 [P] Update `README.md` as user-facing digest of SPECIFICATION.md (constitution I): install, quickstart, config reference, threat-model limits §2
-- [ ] T032 Full validation sweep: `go build`/`go vet`, run ALL quickstart.md scenarios end to end, reconcile any SPECIFICATION.md drift in the same commit
+- [X] T031 [P] Update `README.md` as user-facing digest of SPECIFICATION.md (constitution I): install, quickstart, config reference, threat-model limits §2
+- [X] T032 Full validation sweep: `go build`/`go vet`, run ALL quickstart.md scenarios end to end, reconcile any SPECIFICATION.md drift in the same commit
 
 ---
 

@@ -23,7 +23,7 @@ Kekkai confines it. With a Docker sandbox as the security boundary, Claude Code 
 
 `kekkai up` spins up the latest Claude Code inside a Docker container locked to the current folder, designed so nothing escapes it.
 
-It works out of the box - a `.kekkai.yaml` per project lets you tune the sandbox:
+The creation of a `.kekkai.yaml` file in the project folder lets you define:
 
 - **Disk**: which folders to expose
 - **Network**: which outgoing traffic to allow
@@ -58,13 +58,16 @@ kekkai down        # stop and remove the sandbox for this folder
 kekkai shell       # open zsh in the running sandbox
 kekkai ps          # list running kekkai containers
 kekkai prune       # remove orphans (containers, images); --volumes for history vols
+kekkai version     # print version
 ```
+
+`kekkai up` flags: `--force` recreates a running sandbox, `--verbose` shows plain build progress. Anything after `--` is appended to the claude arguments, e.g. `kekkai up -- --model opus`.
 
 `kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder and starts Claude Code inside it. The config file is required - `kekkai init` generates one with commented defaults to tune.
 
 ## Configure
 
-Each project needs a `.kekkai.yaml` at the workspace root. A working example:
+Each project needs a `.kekkai.yaml` at the project root. A working example:
 
 ```yaml
 image:
@@ -84,7 +87,7 @@ claude:
   # Append extras as needed, e.g. "--model claude-sonnet-4-6".
   args: "--dangerously-skip-permissions"
 
-# Sections below are disabled when omitted
+# Sections below are optional
 
 git:
   # true: mounts ~/.gitconfig (readonly) - your identity and settings,
@@ -99,6 +102,11 @@ git:
   # Requires git.enabled: true.
   ssh_agent: false
 
+env:
+  NODE_ENV: development
+  # gh CLI auth: pass your token through
+  GH_TOKEN: ${GH_TOKEN}
+
 disk:
   mounts:
     # target is optional: ~/foo lands at ~/foo in the sandbox,
@@ -106,12 +114,6 @@ disk:
     - source: ~/.aws
       readonly: true
       optional: true   # skip silently if source doesn't exist
-
-env:
-  NODE_ENV: development
-  # gh CLI auth: pass your token through - OS-keyring tokens
-  # don't carry into containers
-  GH_TOKEN: ${GH_TOKEN}
 
 network:
   # api.anthropic.com and statsig.anthropic.com (required by
@@ -121,7 +123,7 @@ network:
   # can reach any destination. Can't be combined with the options
   # below. When the network block is omitted, the firewall stays on
   # with only the builtin hosts allowed.
-  # allow_all: true
+  allow_all: false
 
   # Allow GitHub (git, api, ssh) - egress IPs are resolved
   # automatically from api.github.com/meta at startup
@@ -139,28 +141,30 @@ network:
 
 secrets:
   # Files or directories shadowed with empty mounts, paths relative
-  # to workspace root. Exact paths only; missing paths are skipped
+  # to project root. Exact paths only; missing paths are skipped
   # with a warning.
   hide:
     - .env.production
     - deploy/certs
 
-# Optional: CPU/memory caps for the sandbox; unlimited when omitted
+# CPU/memory caps for the sandbox; unlimited when omitted
 limits:
   cpus: 4
   memory: 8g
 ```
 
-Docker inside the sandbox isn't supported: giving the agent access to the Docker socket would bypass the sandbox entirely.
 
 ## Known limitations
 
-Kekkai protects against a misbehaving agent: prompt injection, malicious dependencies, destructive commands. But no sandbox can be 100% safe and still be useful - a sealed box with no disk, network or credentials would protect everything and accomplish nothing. Know the trade-offs you're making:
+Kekkai protects against a misbehaving agent: prompt injection, malicious dependencies, destructive commands. But no sandbox can be 100% safe and still be useful.
+
+Know the trade-offs you're making:
 
 - Your Claude Code credentials must live inside the sandbox - that's unavoidable for it to function.
 - Any allowed network destination could be used for exfiltration - allow domains sparingly. (Side channels like DNS queries exist too; the firewall constrains connections, not lookups.)
-- Secrets hiding is an explicit list: only the exact files you name are shadowed. Anything else in exposed folders is readable - keep secrets out of the workspace where you can.
+- Secrets hiding is an explicit list: only the exact files you name are shadowed. Anything else in exposed folders is readable - keep secrets out of the project folder where you can.
 - `~/.claude` is shared read-write so sessions persist - a compromised agent could alter hooks or skills you later run outside the sandbox. Review changes there as you would code.
 - `git.ssh_agent: true` exposes your SSH agent to the sandbox: the agent can sign, push, and authenticate as you against any allowed network destination. Enable per-project, deliberately.
+- Docker CLI inside the sandbox isn't supported: giving the agent access to the Docker socket would bypass the sandbox entirely.
 - The docker bridge subnet is always reachable: host services listening on `0.0.0.0` or the bridge IP, and neighbor containers on the same bridge, are exposed to the sandbox.
 - Docker is the boundary: kernel-level container escapes are out of scope.
