@@ -219,7 +219,7 @@ To allow a new destination: user config `network.*` — never by relaxing the sc
 ## 11. Out of scope (do not add without discussion)
 
 - Docker socket in sandbox / docker-in-docker — rejected by threat model, not just deferred.
-- macOS / Windows builds.
+- macOS / Windows builds. macOS findings (2026-07): the code delta is small — containers run in a Linux VM, so image/firewall/caps work unchanged, and kekkai shells out to the docker CLI so daemon resolution comes free; darwin build + install.sh arch detection is trivial. Rejected because the support surface isn't small: `git.ssh_agent` breaks (unix socket can't cross the VM boundary; Docker Desktop needs the magic `/run/host-services/ssh-auth.sock`, OrbStack/colima differ), the always-allowed bridge subnet reaches the VM rather than the Mac host (host services live at `host.docker.internal`), binds only work under shared paths with slow virtiofs I/O, and each docker runtime (Docker Desktop/OrbStack/colima) needs its own testing. If ever revisited: darwin/arm64 + Docker Desktop only, `ssh_agent` hard-erroring with a clear message.
 - `kekkai update` self-updater.
 - VS Code / devcontainer-CLI integration.
 - Multiple sandboxes per folder.
