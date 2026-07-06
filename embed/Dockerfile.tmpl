@@ -1,0 +1,57 @@
+FROM {{.BaseImage}}
+
+# Builtin + user apt packages (§5.1). gh is not in Debian bookworm, so the
+# GitHub CLI apt repo is added first; the keyring file needs no gpg tooling.
+RUN export DEBIAN_FRONTEND=noninteractive \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends ca-certificates curl \
+ && install -d -m 0755 /etc/apt/keyrings \
+ && curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
+      -o /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+ && chmod 0644 /etc/apt/keyrings/githubcli-archive-keyring.gpg \
+ && echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
+      > /etc/apt/sources.list.d/github-cli.list \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends{{range .AptPackages}} {{.}}{{end}} \
+ && rm -rf /var/lib/apt/lists/*
+
+# Rename the node user to kekkai, preserving its UID (§6.3)
+RUN usermod -l kekkai node \
+ && groupmod -n kekkai node \
+ && usermod -d /home/kekkai -m kekkai
+
+# npm global prefix shared via PATH; claude installs there (§6.3)
+ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global
+ENV PATH=/usr/local/share/npm-global/bin:$PATH
+RUN mkdir -p /usr/local/share/npm-global \
+ && chown -R kekkai:kekkai /usr/local/share/npm-global
+
+# zsh history persists in the /commandhistory volume (§6.3)
+RUN mkdir -p /commandhistory /workspace /home/kekkai/.claude \
+ && touch /commandhistory/.zsh_history \
+ && chown -R kekkai:kekkai /commandhistory /workspace /home/kekkai \
+ && printf 'export HISTFILE=/commandhistory/.zsh_history\nexport HISTSIZE=10000\nexport SAVEHIST=10000\nsetopt INC_APPEND_HISTORY\n' \
+      >> /home/kekkai/.zshrc \
+ && chown kekkai:kekkai /home/kekkai/.zshrc
+
+USER kekkai
+RUN npm install -g @anthropic-ai/claude-code@{{.ClaudeVersion}}
+USER root
+
+# The ONLY sudoers grant: the firewall script (§6.3). No docker CLI in image.
+# sudo resets the environment, so the four firewall input vars (§9) are
+# whitelisted via env_keep scoped to that one command — not SETENV, which
+# would let arbitrary env through.
+COPY init-firewall.sh /usr/local/bin/init-firewall.sh
+RUN chmod 0755 /usr/local/bin/init-firewall.sh \
+ && { echo 'kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh'; \
+      echo 'Defaults!/usr/local/bin/init-firewall.sh env_keep += "ALLOW_ALL ALLOW_GITHUB ALLOWED_DOMAINS ALLOWED_CIDRS"'; \
+    } > /etc/sudoers.d/kekkai \
+ && chmod 0440 /etc/sudoers.d/kekkai
+
+USER kekkai
+WORKDIR /workspace
+ENV SHELL=/bin/zsh
+
+# Firewall init must succeed before claude starts (§7.2)
+CMD ["/bin/sh", "-c", "sudo /usr/local/bin/init-firewall.sh && exec claude $CLAUDE_ARGS"]

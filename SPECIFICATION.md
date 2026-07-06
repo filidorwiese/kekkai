@@ -169,7 +169,7 @@ At `up`, "latest" is resolved to the concrete current version via the npm regist
 - Base `node:*`; `node` user renamed to `kekkai` (UID preserved), home `/home/kekkai`.
 - npm global prefix `/usr/local/share/npm-global`, claude installed there.
 - zsh history wired to `/commandhistory/.zsh_history`.
-- `init-firewall.sh` copied to `/usr/local/bin/`; the **only** sudoers grant: `kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh`. No other sudo without strong reason.
+- `init-firewall.sh` copied to `/usr/local/bin/`; the **only** sudoers grant: `kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh`, plus an `env_keep` Defaults line scoped to that command whitelisting exactly the four §9 input vars (sudo's env_reset would otherwise strip them; SETENV rejected — it would let arbitrary env through). No other sudo without strong reason.
 - No docker CLI.
 
 ## 7. Runtime
@@ -206,7 +206,7 @@ Runs as root via the single sudoers grant, before claude starts. Inputs via env 
 1. Flush tables, preserve/restore Docker's embedded-DNS NAT rules.
 2. Allow loopback, DNS (udp 53), established/related. **No blanket port allowances** — specifically no global tcp/22 (the ipset match covers all ports to allowed IPs; ssh works to allowed destinations only).
 3. Always allow the docker bridge subnet, read from the container's own interface route — host reachability is builtin, not configurable. (The host's physical LAN is *not* reachable this way; container routes only see the bridge. LAN access = user adds the CIDR to `allowed_cidrs`.)
-4. Build `allowed-domains` ipset: builtin hosts (§5.4, resolved via dig) + `ALLOWED_DOMAINS` (dig, once, warn+skip on resolution failure) + `ALLOWED_CIDRS` (validated literals) + when `ALLOW_GITHUB=1`, CIDRs from `api.github.com/meta` (jq-validated, aggregated; fetch failure fatal only when github on — fetch happens pre-lockdown).
+4. Build `allowed-domains` ipset: builtin hosts (§5.4, resolved via dig — `api.anthropic.com` failing to resolve is fatal since the verification probe needs it; `statsig.anthropic.com` may be absent from DNS, warn+skip) + `ALLOWED_DOMAINS` (dig, once, warn+skip on resolution failure) + `ALLOWED_CIDRS` (validated literals) + when `ALLOW_GITHUB=1`, CIDRs from `api.github.com/meta` (jq-validated, aggregated; fetch failure fatal only when github on — fetch happens pre-lockdown).
 5. Default policy DROP in/out/forward; allowed-set egress ACCEPT; reject rest with icmp-admin-prohibited.
 6. **Verification (never disable):** `https://example.com` must FAIL; `https://api.anthropic.com` must SUCCEED; when `ALLOW_GITHUB=1`, `https://api.github.com/zen` must SUCCEED. Any probe violation aborts startup.
 

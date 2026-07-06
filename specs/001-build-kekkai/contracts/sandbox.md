@@ -14,8 +14,9 @@
 - Dockerfile guarantees (§6.3): base `node:*`; `node` user renamed `kekkai` (UID kept), home
   `/home/kekkai`; npm global prefix `/usr/local/share/npm-global` with claude installed; zsh
   history at `/commandhistory/.zsh_history`; `init-firewall.sh` at `/usr/local/bin/`; sudoers
-  contains exactly one grant: `kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh`;
-  no docker CLI in image.
+  contains exactly one grant: `kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh`,
+  plus a command-scoped `env_keep` Defaults line whitelisting exactly the four §9 firewall vars
+  (sudo env_reset would strip them; SETENV rejected); no docker CLI in image.
 
 ## Container
 
@@ -44,7 +45,8 @@ Inputs: env only — `ALLOW_ALL`, `ALLOW_GITHUB`, `ALLOWED_DOMAINS`, `ALLOWED_CI
 - Otherwise: flush (preserving Docker embedded-DNS NAT); allow loopback, udp/53,
   established/related — no blanket port allowances (no global tcp/22); always allow the docker
   bridge subnet (from the container's own route); build `allowed-domains` ipset = builtin hosts
-  (`api.anthropic.com`, `statsig.anthropic.com` via dig) + `ALLOWED_DOMAINS` (dig once,
+  (`api.anthropic.com` via dig, fatal on failure; `statsig.anthropic.com` warn+skip — it may be
+  absent from DNS) + `ALLOWED_DOMAINS` (dig once,
   warn+skip on failure) + `ALLOWED_CIDRS` + GitHub meta CIDRs when `ALLOW_GITHUB=1`
   (jq-validated, aggregated; fetch failure fatal, pre-lockdown); default policy DROP in/out/fwd;
   ipset egress ACCEPT; reject rest with icmp-admin-prohibited.
