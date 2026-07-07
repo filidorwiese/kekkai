@@ -9,13 +9,14 @@ import (
 // starterConfig: active values equal the code defaults (copy/paste safety,
 // §4.5); every optional section is present but commented, with README-grade
 // comments; behavior-changing examples appear only in comments.
-const starterConfig = `# .kekkai.yaml — kekkai sandbox configuration
-# The container is the security boundary: Claude runs fully autonomous inside
-# it. Sections that are commented out are disabled.
+const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
+# The container is the security boundary: Claude runs fully autonomous inside it.
+# Sections that are commented out are disabled.
 
 image:
   # Base image for the sandbox. Must be a node:* image (Claude Code runs on node).
-  base_image: node:22-bookworm
+  base_image: node:24-trixie
+
   # Extra apt packages baked into the image, appended to kekkai's builtin set.
   # apt_packages: [golang]
 
@@ -24,23 +25,25 @@ claude:
   # Claude release triggers an image rebuild. Pin an exact version ("2.0.14")
   # for a stable image.
   version: latest
-  # Passed to claude verbatim, REPLACING the default — keep the flag below if
+
+  # Passed to claude verbatim, REPLACING the default - keep the flag below if
   # you want autonomous mode. Example with a model: "--dangerously-skip-permissions --model opus"
   args: "--dangerously-skip-permissions"
 
 # git:
 #   # true: mounts your ~/.gitconfig read-only so commits carry your identity.
-#   # false/omitted: .git is bound read-only — history readable, commits fail.
+#   # false/omitted: .git is bound read-only - history readable, commits fail.
 #   enabled: true
+#
 #   # true: mounts $SSH_AUTH_SOCK so git push/pull authenticates as you.
 #   # Requires enabled: true. The agent can then use your keys against any
-#   # allowed host — combine with a tight network section.
+#   # allowed host - combine with a tight network section.
 #   ssh_agent: false
 
 # disk:
 #   mounts:
 #     - source: ~/.aws              # host path; ~ and ${VAR} expand
-#       target: /home/kekkai/.aws   # optional — inferred when omitted
+#       target: /home/kekkai/.aws   # optional - inferred when omitted
 #       readonly: true
 #       optional: true              # skip silently when the source is missing
 
@@ -48,22 +51,23 @@ claude:
 #   # Extra environment for the sandbox (map, not list). ${VAR} passes host
 #   # values through.
 #   NODE_ENV: development
-#   # gh auth: pair with network.allow_github below. gh reads GH_TOKEN before
-#   # ~/.config/gh/hosts.yml, and host keyring tokens don't carry into
-#   # containers — env passthrough is the supported path.
 #   GH_TOKEN: ${GH_TOKEN}
 
 # network:
-#   # Omitted network section = firewall on, builtins only
-#   # (api.anthropic.com and statsig.anthropic.com are always allowed).
+#   # Omitted network section = egress firewall on
+#   # Note: api.anthropic.com and statsig.anthropic.com are always allowed.
+#
 #   # GitHub git/api/ssh via the api.github.com/meta CIDR list:
 #   allow_github: true
+#
 #   # Extra domains, resolved to IPs once at sandbox start:
 #   allowed_domains:
 #     - registry.npmjs.org
+#
 #   # Literal IP ranges, e.g. your LAN or a staging network:
 #   allowed_cidrs:
 #     - 192.168.1.0/24
+#
 #   # Escape hatch: true disables the egress firewall entirely. Must be the
 #   # ONLY network key when set.
 #   allow_all: false
@@ -96,6 +100,6 @@ func Init() error {
 	if err := os.WriteFile(path, []byte(starterConfig), 0o644); err != nil {
 		return err
 	}
-	fmt.Println("wrote .kekkai.yaml — review it, then run 'kekkai up'")
+	fmt.Println("wrote .kekkai.yaml - review it, then run 'kekkai up'")
 	return nil
 }

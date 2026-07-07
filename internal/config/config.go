@@ -14,7 +14,7 @@ import (
 
 // Defaults are code constants — no layered or user-global config (§4.1).
 const (
-	DefaultBaseImage     = "node:22-bookworm"
+	DefaultBaseImage     = "node:24-trixie"
 	DefaultClaudeVersion = "latest"
 	DefaultClaudeArgs    = "--dangerously-skip-permissions"
 )
