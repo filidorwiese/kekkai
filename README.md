@@ -31,6 +31,10 @@ The creation of a `.kekkai.yaml` file in the project folder lets you define:
 
 Your Claude setup carries over into the sandbox: skills, hooks, session - everything in `~/.claude` - so it behaves exactly like your regular Claude Code, just contained.
 
+
+https://github.com/user-attachments/assets/252371a6-87f2-435d-aeb1-44f927bdca60
+
+
 ## Install
 
 Kekkai ships as a single static binary, installed to `~/.local/bin`.
