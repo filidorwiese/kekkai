@@ -41,8 +41,6 @@ Kekkai ships as a single static binary, installed to `~/.local/bin`.
 
 **Prerequisites:** Linux x86_64/aarch64, or macOS on Apple silicon. Docker (on macOS: Docker Desktop, OrbStack, colima, or any Docker-compatible runtime), git, curl.
 
-On macOS, Docker Desktop is maintainer-validated each release; other runtimes are supported via a capability preflight at `kekkai up` and community-validated.
-
 Quick install:
 
 ```sh
