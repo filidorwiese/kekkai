@@ -35,12 +35,14 @@ kekkai down        # stop + remove the sandbox container for $PWD
 kekkai shell       # open zsh in the running sandbox for $PWD
 kekkai ps          # list running kekkai containers
 kekkai prune       # remove orphan containers + unused kekkai:* images; --volumes adds history vols; --yes skips prompt
+kekkai self-update # update the binary to the latest GitHub release
 kekkai version     # print version
 kekkai help        # usage
 ```
 
-- Stdlib `flag` per subcommand, dispatch in `cmd/kekkai/main.go`, logic in `internal/runtime/<name>.go`.
+- Stdlib `flag` per subcommand, dispatch in `cmd/kekkai/main.go`, logic in `internal/runtime/<name>.go` (`self-update` lives in `internal/selfupdate`: no docker involvement).
 - `up` flags: `--force` (recreate existing container), `--verbose` (plain buildkit progress). Args after `--` are appended to claude args.
+- `self-update`: prints `Updated kekkai <from> -> <to>` on success, `You're on the latest version (<installed>)` when current, `You're ahead of the latest release (<installed> > <latest>)` when newer than the latest release; dev (unversioned) builds refuse and point at install.sh; `KEKKAI_REPO` overrides the repo slug (testing hook, install.sh precedent). Exact strings in `specs/003-self-update/contracts/self-update-cli.md`.
 - No `config` or `doctor` subcommands.
 
 ## 4. Configuration
@@ -221,12 +223,12 @@ To allow a new destination: user config `network.*` — never by relaxing the sc
 - `v*` tag → `.github/workflows/release.yml`: matrix build linux/amd64, linux/arm64, darwin/arm64 (CGO_ENABLED=0 cross-compile; unsigned/un-notarized — fine for curl/tarball installs), tarballs, one `SHA256SUMS`, GitHub release.
 - `install.sh` (curl-pipe from repo main): reads latest tag from GH API (or `KEKKAI_VERSION`), installs to `~/.local/bin/`. Darwin/arm64 supported; Darwin/x86_64 refused with "Apple silicon Macs only"; checksum via `sha256sum` or `shasum -a 256` fallback (macOS).
 - Host prerequisites: Docker-compatible runtime (macOS: Docker Desktop maintainer-validated; OrbStack/colima/others community-validated), git, curl.
+- `kekkai self-update`: downloads the same release artifacts install.sh consumes, verifies against `SHA256SUMS` before extraction, atomically replaces the running binary (same-directory rename); dev builds refuse; `KEKKAI_REPO` honored.
 
 ## 11. Out of scope (do not add without discussion)
 
 - Docker socket in sandbox / docker-in-docker — rejected by threat model, not just deferred.
 - Windows builds. (macOS support: in scope as of 2026-07, see `specs/002-macos-support/`.)
-- `kekkai update` self-updater.
 - VS Code / devcontainer-CLI integration.
 - Multiple sandboxes per folder.
 - Per-project Dockerfile override.

@@ -62,8 +62,11 @@ kekkai down        # stop and remove the sandbox for this folder
 kekkai shell       # open zsh in the running sandbox
 kekkai ps          # list running kekkai containers
 kekkai prune       # remove orphans (containers, images); --volumes for history vols
+kekkai self-update # update kekkai to the latest release
 kekkai version     # print version
 ```
+
+`kekkai self-update` fetches the latest GitHub release, verifies its checksum and replaces the binary in place; development builds refuse and point at the installer.
 
 `kekkai up` flags: `--force` recreates a running sandbox, `--verbose` shows plain build progress. Anything after `--` is appended to the claude arguments, e.g. `kekkai up -- --model opus`.
 

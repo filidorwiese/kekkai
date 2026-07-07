@@ -8,6 +8,7 @@ import (
 	"os"
 
 	"kekkai/internal/runtime"
+	"kekkai/internal/selfupdate"
 )
 
 // version is injected via -ldflags "-X main.version=vX.Y.Z".
@@ -29,6 +30,7 @@ Commands:
   prune       remove orphan containers + unused kekkai:* images
               flags: --volumes (include history volumes)
                      --yes (skip confirmation prompt)
+  self-update update kekkai to the latest release
   version     print version
   help        show this help
 `
@@ -58,6 +60,12 @@ func dispatch(args []string) int {
 		err = runtime.Ps()
 	case "prune":
 		err = pruneCommand(args[1:])
+	case "self-update":
+		if len(args) > 1 {
+			err = fmt.Errorf("unexpected argument %q (self-update takes none)", args[1])
+		} else {
+			err = selfupdate.Run(version)
+		}
 	case "version":
 		fmt.Println(version)
 	case "help", "-h", "--help":
