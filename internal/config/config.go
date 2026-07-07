@@ -14,9 +14,13 @@ import (
 
 // Defaults are code constants — no layered or user-global config (§4.1).
 const (
-	DefaultBaseImage     = "node:24-trixie"
+	DefaultNodeVersion   = "lts"
 	DefaultClaudeVersion = "latest"
 	DefaultClaudeArgs    = "--dangerously-skip-permissions"
+
+	// debianRelease pins the Debian flavor of the node base image; the user
+	// only picks the node version (§4.2).
+	debianRelease = "trixie"
 )
 
 // ErrNoConfig is the exact `up` error for a missing config (contracts/cli.md).
@@ -35,13 +39,21 @@ type Config struct {
 	// networkKeysSet records which network keys appear in the document, so
 	// allow_all exclusivity catches explicit `allow_github: false` too.
 	// limitsKeysSet distinguishes `cpus: 0` from an absent key.
+	// imageKeysSet distinguishes `node_version: ""` from an absent key.
 	networkKeysSet []string
 	limitsKeysSet  []string
+	imageKeysSet   []string
 }
 
 type ImageConfig struct {
-	BaseImage   string   `yaml:"base_image"`
+	NodeVersion string   `yaml:"node_version"`
 	AptPackages []string `yaml:"apt_packages"`
+}
+
+// ResolvedBaseImage is the only place the node version becomes an image
+// reference; the Debian release is pinned, never user input (§4.2).
+func (i ImageConfig) ResolvedBaseImage() string {
+	return "node:" + i.NodeVersion + "-" + debianRelease
 }
 
 type ClaudeConfig struct {
@@ -90,7 +102,8 @@ type LimitsConfig struct {
 // legacyKeys are pre-rewrite schema keys that get a targeted migration error
 // instead of a bare unknown-key message (§4.1).
 var legacyKeys = map[string]string{
-	"image.base":                "image.base_image",
+	"image.base":                "image.node_version",
+	"image.base_image":          "image.node_version",
 	"image.claude_code_version": "claude.version",
 	"firewall":                  "network",
 	"docker_access":             "(removed — docker-in-sandbox is not supported)",
@@ -154,11 +167,15 @@ func Load(dir string) (*Config, []error) {
 
 	cfg.networkKeysSet = presentSectionKeys(data, "network")
 	cfg.limitsKeysSet = presentSectionKeys(data, "limits")
+	cfg.imageKeysSet = presentSectionKeys(data, "image")
 	cfg.applyDefaults()
 	return cfg, errs
 }
 
 func (c *Config) applyDefaults() {
+	if c.Image.NodeVersion == "" && !c.keySet(c.imageKeysSet, "node_version") {
+		c.Image.NodeVersion = DefaultNodeVersion
+	}
 	if c.Claude.Version == "" {
 		c.Claude.Version = DefaultClaudeVersion
 	}
@@ -195,6 +212,16 @@ func detectLegacyKeys(data []byte) []error {
 		}
 	}
 	return errs
+}
+
+// keySet reports whether key appears explicitly in the document section.
+func (c *Config) keySet(keys []string, key string) bool {
+	for _, k := range keys {
+		if k == key {
+			return true
+		}
+	}
+	return false
 }
 
 func presentSectionKeys(data []byte, section string) []string {

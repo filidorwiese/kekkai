@@ -18,6 +18,9 @@ var reservedEnvKeys = []string{
 var (
 	versionPattern = regexp.MustCompile(`^[0-9]+\.[0-9]+\.[0-9]+([-.][0-9A-Za-z.-]+)?$`)
 	memoryPattern  = regexp.MustCompile(`(?i)^[0-9]+(\.[0-9]+)?[bkmg]?$`)
+	// nodeVersionPattern accepts plain selectors (24, 24.3.0, lts, current,
+	// codenames). No `-`: the Debian suffix is appended internally (§4.2).
+	nodeVersionPattern = regexp.MustCompile(`^[a-z0-9.]+$`)
 )
 
 // Validate runs every semantic check from contracts/config.md and resolves
@@ -29,11 +32,12 @@ func Validate(cfg *Config) []error {
 		errs = append(errs, fmt.Errorf(format, a...))
 	}
 
-	// image.base_image required, node:* only
-	if cfg.Image.BaseImage == "" {
-		fail("image.base_image is required (e.g. %s)", DefaultBaseImage)
-	} else if !strings.HasPrefix(cfg.Image.BaseImage, "node:") {
-		fail("image.base_image must be a node:* image, got %q", cfg.Image.BaseImage)
+	// image.node_version: plain version selector; absent key already
+	// defaulted to lts, explicit empty is a mistake, not a default request
+	if strings.TrimSpace(cfg.Image.NodeVersion) == "" {
+		fail("image.node_version must not be empty (omit the key for the default %q)", DefaultNodeVersion)
+	} else if !nodeVersionPattern.MatchString(cfg.Image.NodeVersion) {
+		fail("image.node_version must be a plain version selector like \"24\" or \"lts\", got %q", cfg.Image.NodeVersion)
 	}
 
 	// claude.version: latest or exact npm version

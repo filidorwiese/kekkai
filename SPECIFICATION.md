@@ -51,13 +51,13 @@ kekkai help        # usage
 
 Single file: `./.kekkai.{yml,yaml}` at the workspace root. Both extensions accepted; both present is an error. **Required** — `up` without it errors: "no .kekkai.yaml found, run `kekkai init`". There are no merged yaml layers and no user-global config; all defaults are code-level constants (§5).
 
-Strict parsing (`yaml.v3`, `KnownFields(true)`). Known keys from the pre-rewrite schema (`image.base`, `image.claude_code_version`, `firewall`, `docker_access`, top-level `mounts`) produce a targeted error: schema changed, run `kekkai init`, see README.
+Strict parsing (`yaml.v3`, `KnownFields(true)`). Known keys from earlier schemas (`image.base`, `image.base_image`, `image.claude_code_version`, `firewall`, `docker_access`, top-level `mounts`) produce a targeted error: schema changed, run `kekkai init`, see README.
 
 ### 4.2 Schema
 
 ```yaml
 image:
-  base_image: node:24-trixie     # required; must match node:*
+  node_version: lts              # node version selector; default "lts"
   apt_packages: [golang]         # appended to builtin set (§5.1)
 
 claude:
@@ -110,7 +110,7 @@ limits:                          # optional; unlimited when omitted
 
 `kekkai up` validates the full document as its first step — strict schema (unknown keys/types via `KnownFields`) plus all semantic checks below — and aborts before any docker work (version resolution, image build, container run). Report all violations in one pass, not first-error-only.
 
-- `image.base_image` required, must match `node:*` — error otherwise.
+- `image.node_version`: plain version selector matching `^[a-z0-9.]+$` (e.g. `24`, `24.3.0`, `lts`, `current`). Absent key defaults to `lts`; explicit empty value is an error (a mistake, not a default request). Resolved internally to `node:<version>-<debian release>` — the Debian release is a code constant (currently `trixie`), never user input. Existence of the tag is not checked here (§6.1 pre-check).
 - `claude.version`: "latest" or exact npm version string.
 - Mounts: source required, no duplicate targets.
 - `git.ssh_agent: true` requires `git.enabled: true` — validation error otherwise. At `up` on linux, `ssh_agent: true` with unset `$SSH_AUTH_SOCK` on host is a hard error (no silent skip). On darwin the equivalent check is the preflight agent-socket probe (§7.4) — same principle: never proceed silently without the agent.
@@ -121,7 +121,7 @@ limits:                          # optional; unlimited when omitted
 
 ### 4.5 `kekkai init`
 
-Writes a minimal starter: active keys `image.base_image` + `claude`, all optional sections present but commented out, with README-grade explanatory comments. Includes the commented `GH_TOKEN: ${GH_TOKEN}` env example next to `allow_github` — env passthrough is the supported gh auth path (host keyring tokens don't carry into containers; `gh` reads `GH_TOKEN` before `~/.config/gh/hosts.yml`).
+Writes a minimal starter: active keys `image.node_version` + `claude`, all optional sections present but commented out, with README-grade explanatory comments. Includes the commented `GH_TOKEN: ${GH_TOKEN}` env example next to `allow_github` — env passthrough is the supported gh auth path (host keyring tokens don't carry into containers; `gh` reads `GH_TOKEN` before `~/.config/gh/hosts.yml`).
 
 Copy/paste safety: active example values in the starter (and README example) must equal the defaults — pasting unchanged reproduces default behavior. Behavior-changing options (e.g. `--model` in `claude.args`) appear only in comments.
 
@@ -156,9 +156,11 @@ Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsut
 
 ### 6.1 Bake-time inputs (and nothing else)
 
-Dockerfile template (`embed/Dockerfile.tmpl`) rendered with: `image.base_image`, builtin + user `apt_packages`, resolved `claude.version`. Image hash = `sha256(rendered Dockerfile + embed/init-firewall.sh)[:12]`, tag `kekkai:<hash>`. Built on demand only when `docker image inspect` misses.
+Dockerfile template (`embed/Dockerfile.tmpl`) rendered with: the resolved base image (`node:<image.node_version>-<debian release>`), builtin + user `apt_packages`, resolved `claude.version`. Image hash = `sha256(rendered Dockerfile + embed/init-firewall.sh)[:12]`, tag `kekkai:<hash>`. Built on demand only when `docker image inspect` misses.
 
-Each image additionally carries label `kekkai.config_hash = sha256(image.base_image + "\n" + builtin+user apt_packages + "\n" + embed/init-firewall.sh)[:12]` — the bake inputs *minus* the claude version. It exists solely so the §6.2 offline fallback can find images built for this config; it never keys builds.
+Before a build whose base image is not present locally, a best-effort Docker Hub manifest check (anonymous token + manifest `HEAD`, 10s timeout) confirms the node tag exists: a confirmed 404 aborts with an error naming `image.node_version`; any other outcome (timeout, transport error, unexpected status) is inconclusive and the build proceeds — an unreachable registry must never block offline use, the pull error remains the fallback.
+
+Each image additionally carries label `kekkai.config_hash = sha256(resolved base image + "\n" + builtin+user apt_packages + "\n" + embed/init-firewall.sh)[:12]` — the bake inputs *minus* the claude version. It exists solely so the §6.2 offline fallback can find images built for this config; it never keys builds.
 
 Everything else (mounts, env, network, secrets, limits, claude.args) is runtime input — must never trigger a rebuild, must never enter the hash.
 

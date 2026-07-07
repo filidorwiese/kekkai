@@ -115,7 +115,8 @@ func Up(opts UpOptions) (int, error) {
 // image with a matching kekkai.config_hash label (§6.2).
 func ensureImage(cfg *config.Config, verbose bool) (string, error) {
 	aptPackages := append(append([]string{}, builtinAptPackages...), cfg.Image.AptPackages...)
-	configHash := ConfigHash(cfg.Image.BaseImage, aptPackages, assets.FirewallScript)
+	baseImage := cfg.Image.ResolvedBaseImage()
+	configHash := ConfigHash(baseImage, aptPackages, assets.FirewallScript)
 
 	version := cfg.Claude.Version
 	if version == "latest" {
@@ -131,18 +132,62 @@ func ensureImage(cfg *config.Config, verbose bool) (string, error) {
 		version = resolved
 	}
 
-	rendered, err := renderDockerfile(cfg.Image.BaseImage, aptPackages, version)
+	rendered, err := renderDockerfile(baseImage, aptPackages, version)
 	if err != nil {
 		return "", err
 	}
 	tag := ImageTag(rendered, assets.FirewallScript)
 	if !docker.ImageExists(tag) {
+		// The build will pull the base image; confirm the tag exists first so
+		// a bad node_version fails fast with a config-shaped error (§6.1).
+		// Best-effort only: skipped when the base image is already local, and
+		// an unreachable registry falls through to the pull error.
+		if !docker.ImageExists(baseImage) && baseImageMissing(baseImage) {
+			return "", fmt.Errorf(
+				"image.node_version: %q has no published base image (%s not found on Docker Hub) — pick a version from https://hub.docker.com/_/node",
+				cfg.Image.NodeVersion, baseImage)
+		}
 		fmt.Printf("building image %s (claude %s)\n", tag, version)
 		if err := buildImage(tag, rendered, configHash, verbose); err != nil {
 			return "", err
 		}
 	}
 	return tag, nil
+}
+
+// baseImageMissing reports whether Docker Hub CONFIRMS the node tag does not
+// exist (HTTP 404). Any other outcome — timeout, transport error, unexpected
+// status — is inconclusive and returns false so offline use never blocks.
+func baseImageMissing(baseImage string) bool {
+	tag := strings.TrimPrefix(baseImage, "node:")
+	client := &http.Client{Timeout: 10 * time.Second}
+
+	resp, err := client.Get("https://auth.docker.io/token?service=registry.docker.io&scope=repository:library/node:pull")
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	var auth struct {
+		Token string `json:"token"`
+	}
+	if resp.StatusCode != http.StatusOK || json.NewDecoder(resp.Body).Decode(&auth) != nil || auth.Token == "" {
+		return false
+	}
+
+	req, err := http.NewRequest(http.MethodHead,
+		"https://registry-1.docker.io/v2/library/node/manifests/"+tag, nil)
+	if err != nil {
+		return false
+	}
+	req.Header.Set("Authorization", "Bearer "+auth.Token)
+	req.Header.Set("Accept",
+		"application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest.list.v2+json, application/vnd.oci.image.index.v1+json, application/vnd.oci.image.manifest.v1+json")
+	manifest, err := client.Do(req)
+	if err != nil {
+		return false
+	}
+	defer manifest.Body.Close()
+	return manifest.StatusCode == http.StatusNotFound
 }
 
 func resolveLatest() (string, error) {

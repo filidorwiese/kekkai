@@ -14,8 +14,8 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 # Sections that are commented out are disabled.
 
 image:
-  # Base image for the sandbox. Must be a node:* image (Claude Code runs on node).
-  base_image: node:24-trixie
+  # Node.js version for the sandbox: "lts" (default), "current", or a version like "24"
+  node_version: lts
 
   # Extra apt packages baked into the image, appended to kekkai's builtin set.
   # apt_packages: [golang]

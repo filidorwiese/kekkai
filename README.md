@@ -80,9 +80,8 @@ Each project needs a `.kekkai.yaml` at the project root. A working example:
 
 ```yaml
 image:
-  # Base image must be a node:* image; pin the Debian release
-  # so apt package names stay stable
-  base_image: node:24-trixie
+  # Node.js version: "lts" (default), "current", or a version like "24".
+  node_version: lts
   apt_packages: [golang]
 
 claude:
