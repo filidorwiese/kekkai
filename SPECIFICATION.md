@@ -6,7 +6,7 @@
 
 Kekkai runs Claude Code inside a per-project Docker sandbox with explicit control over disk, network, and secrets. The container is the security boundary, so Claude runs with `--dangerously-skip-permissions` — fully autonomous, nothing escapes.
 
-Distribution infrastructure, not application code. One static Go binary (`./cmd/kekkai`), Linux amd64/arm64 only. No unit-test suite of consequence; validation is end-to-end against a real docker daemon:
+Distribution infrastructure, not application code. One static Go binary (`./cmd/kekkai`); targets linux/amd64, linux/arm64, darwin/arm64 (Apple silicon). On macOS containers run in the runtime's Linux VM, so the container side is identical; support is capability-based — any Docker-compatible runtime whose preflight probes pass (§7.4) works. Docker Desktop is maintainer-validated per release; OrbStack, colima and others are community-validated. No unit-test suite of consequence; validation is end-to-end against a real docker daemon:
 
 ```sh
 go build -ldflags "-X main.version=v0.0.0-dev" -o /tmp/kekkai ./cmd/kekkai
@@ -22,7 +22,7 @@ Protects against a misbehaving agent: prompt injection, malicious dependencies, 
 - `secrets.hide` is an explicit exact-path list; everything else in exposed folders is readable.
 - `~/.claude` is mounted read-write so sessions/skills persist — a compromised agent could alter hooks/skills executed later outside the sandbox.
 - `git.ssh_agent: true` lets the agent authenticate as the user against any allowed host.
-- The docker bridge subnet is always allowed: host services on `0.0.0.0`/bridge IP and neighbor containers on the same bridge are reachable from the sandbox.
+- The docker bridge subnet is always allowed: host services on `0.0.0.0`/bridge IP and neighbor containers on the same bridge are reachable from the sandbox. On macOS the same builtin host reachability goes via `host.docker.internal` (§5.4) and is broader: it also reaches Mac services bound only to `127.0.0.1`, which the Linux bridge cannot.
 - Docker is the boundary; kernel-level container escapes out of scope.
 - Docker-in-sandbox is **not supported**: socket access would bypass the sandbox entirely. No escape hatch exists.
 
@@ -111,7 +111,7 @@ limits:                          # optional; unlimited when omitted
 - `image.base_image` required, must match `node:*` — error otherwise.
 - `claude.version`: "latest" or exact npm version string.
 - Mounts: source required, no duplicate targets.
-- `git.ssh_agent: true` requires `git.enabled: true` — validation error otherwise. At `up`, `ssh_agent: true` with unset `$SSH_AUTH_SOCK` on host is a hard error (no silent skip).
+- `git.ssh_agent: true` requires `git.enabled: true` — validation error otherwise. At `up` on linux, `ssh_agent: true` with unset `$SSH_AUTH_SOCK` on host is a hard error (no silent skip). On darwin the equivalent check is the preflight agent-socket probe (§7.4) — same principle: never proceed silently without the agent.
 - `network.allow_all: true` combined with any other `network` key — validation error (contradictory intent; the escape hatch must be deliberate and alone). Omitted `network` block = firewall on, builtins only.
 - `network.allowed_cidrs`: each entry must parse as CIDR.
 - `network.allowed_domains`: no whitespace.
@@ -140,7 +140,7 @@ Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsut
 - History volume `kekkai-history-<sha256($PWD)[:8]>` → `/commandhistory`.
 - When `git.enabled: true`: `~/.gitconfig` → ro; agent commits carry the user's identity.
 - When `git.enabled: false` or section omitted: `$PWD/.git` → `/workspace/.git` ro bind (skipped if not a git repo). Enforceable no-commit: the container lacks `SYS_ADMIN`, so the agent cannot remount. History readable (`log`/`diff`/`show`); commits, staging, fetch, and index refresh fail. Chosen over `chmod -x git` (trivially bypassed by copying the binary, and kills read ops Claude needs).
-- When `git.ssh_agent`: `$SSH_AUTH_SOCK` → `/ssh-agent` + env `SSH_AUTH_SOCK=/ssh-agent`; `~/.config/git/allowed_signers` → ro, optional.
+- When `git.ssh_agent`: linux binds host `$SSH_AUTH_SOCK` → `/ssh-agent`; darwin binds the runtime-VM socket `/run/host-services/ssh-auth.sock` → `/ssh-agent` (a Mac unix socket cannot cross the VM boundary; Docker Desktop and OrbStack expose this path natively, colima via `colima start --ssh-agent`). Both set env `SSH_AUTH_SOCK=/ssh-agent`; `~/.config/git/allowed_signers` → ro, optional.
 
 ### 5.3 Env
 
@@ -148,7 +148,7 @@ Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsut
 
 ### 5.4 Always-allowed network destinations
 
-`api.anthropic.com`, `statsig.anthropic.com`. Nothing else — not npm, not sentry. Baked into the firewall script, not user-removable, not listed in user config.
+`api.anthropic.com`, `statsig.anthropic.com`, `host.docker.internal` (warn tier: resolves on macOS runtimes giving builtin Mac-host reachability — the darwin counterpart of the §9.3 bridge-subnet allowance; unresolvable on default-bridge Linux, so warn+skip there, no behavior change). Nothing else — not npm, not sentry. Baked into the firewall script, not user-removable, not listed in user config.
 
 ## 6. Image
 
@@ -187,6 +187,10 @@ At `up`, "latest" is resolved to the concrete current version via the npm regist
 
 `--cap-add NET_ADMIN --cap-add NET_RAW` (required by firewall, not configurable) → builtin mounts → git mounts → disk.mounts (missing source: skip+notice if optional, warn otherwise) → secrets shadows (§8) → builtin env → user env → firewall env (last, authoritative) → `CLAUDE_ARGS` → `limits` (`--cpus`, `--memory`) → `-w /workspace`.
 
+### 7.4 macOS preflight (darwin only)
+
+Capability probes gate; runtime identity never does. After `ensureImage`, before the real run, one short-lived container from the just-built image bind-mounts read-only every path the run will bind ($PWD, `~/.claude`, `~/.gitconfig` when applicable, each resolved disk.mount source) plus the VM agent socket when `git.ssh_agent: true`; command `test -S /ssh-agent` when the agent is configured, else `true`. Any failure aborts before sandbox work: message names the missing capability and a fix — runtime-specific when the runtime is recognized via `docker info` (Docker Desktop / OrbStack / colima), generic otherwise. Unrecognized runtimes with passing probes proceed normally. Zero docker calls added to the happy path beyond the probe; no-op on linux. Contract incl. hint table: `specs/002-macos-support/contracts/preflight.md`.
+
 ## 8. Secrets hiding
 
 `secrets.hide` paths (relative to workspace root) are shadowed, stat-gated on the host **before** run — docker must never create host artifacts for missing paths:
@@ -205,7 +209,7 @@ Runs as root via the single sudoers grant, before claude starts. Inputs via env 
 
 1. Flush tables, preserve/restore Docker's embedded-DNS NAT rules.
 2. Allow loopback, DNS (udp 53), established/related. **No blanket port allowances** — specifically no global tcp/22 (the ipset match covers all ports to allowed IPs; ssh works to allowed destinations only).
-3. Always allow the docker bridge subnet, read from the container's own interface route — host reachability is builtin, not configurable. (The host's physical LAN is *not* reachable this way; container routes only see the bridge. LAN access = user adds the CIDR to `allowed_cidrs`.)
+3. Always allow the docker bridge subnet, read from the container's own interface route — host reachability is builtin, not configurable. (The host's physical LAN is *not* reachable this way; container routes only see the bridge. LAN access = user adds the CIDR to `allowed_cidrs`.) On macOS the bridge only reaches the runtime's VM; builtin *Mac*-host reachability comes from the `host.docker.internal` builtin (§5.4) instead — same script, no platform branch.
 4. Build `allowed-domains` ipset: builtin hosts (§5.4, resolved via dig — `api.anthropic.com` failing to resolve is fatal since the verification probe needs it; `statsig.anthropic.com` may be absent from DNS, warn+skip) + `ALLOWED_DOMAINS` (dig, once, warn+skip on resolution failure) + `ALLOWED_CIDRS` (validated literals) + when `ALLOW_GITHUB=1`, CIDRs from `api.github.com/meta` (jq-validated, aggregated; fetch failure fatal only when github on — fetch happens pre-lockdown).
 5. Default policy DROP in/out/forward; allowed-set egress ACCEPT; reject rest with icmp-admin-prohibited.
 6. **Verification (never disable):** `https://example.com` must FAIL; `https://api.anthropic.com` must SUCCEED; when `ALLOW_GITHUB=1`, `https://api.github.com/zen` must SUCCEED. Any probe violation aborts startup.
@@ -214,14 +218,14 @@ To allow a new destination: user config `network.*` — never by relaxing the sc
 
 ## 10. Distribution
 
-- `v*` tag → `.github/workflows/release.yml`: matrix build linux/amd64 + arm64, tarballs, `SHA256SUMS`, GitHub release.
-- `install.sh` (curl-pipe from repo main): reads latest tag from GH API (or `KEKKAI_VERSION`), installs to `~/.local/bin/`.
-- Host prerequisites: Docker, git, curl.
+- `v*` tag → `.github/workflows/release.yml`: matrix build linux/amd64, linux/arm64, darwin/arm64 (CGO_ENABLED=0 cross-compile; unsigned/un-notarized — fine for curl/tarball installs), tarballs, one `SHA256SUMS`, GitHub release.
+- `install.sh` (curl-pipe from repo main): reads latest tag from GH API (or `KEKKAI_VERSION`), installs to `~/.local/bin/`. Darwin/arm64 supported; Darwin/x86_64 refused with "Apple silicon Macs only"; checksum via `sha256sum` or `shasum -a 256` fallback (macOS).
+- Host prerequisites: Docker-compatible runtime (macOS: Docker Desktop maintainer-validated; OrbStack/colima/others community-validated), git, curl.
 
 ## 11. Out of scope (do not add without discussion)
 
 - Docker socket in sandbox / docker-in-docker — rejected by threat model, not just deferred.
-- macOS / Windows builds. macOS findings (2026-07): the code delta is small — containers run in a Linux VM, so image/firewall/caps work unchanged, and kekkai shells out to the docker CLI so daemon resolution comes free; darwin build + install.sh arch detection is trivial. Rejected because the support surface isn't small: `git.ssh_agent` breaks (unix socket can't cross the VM boundary; Docker Desktop needs the magic `/run/host-services/ssh-auth.sock`, OrbStack/colima differ), the always-allowed bridge subnet reaches the VM rather than the Mac host (host services live at `host.docker.internal`), binds only work under shared paths with slow virtiofs I/O, and each docker runtime (Docker Desktop/OrbStack/colima) needs its own testing. If ever revisited: darwin/arm64 + Docker Desktop only, `ssh_agent` hard-erroring with a clear message.
+- Windows builds. (macOS support: in scope as of 2026-07, see `specs/002-macos-support/`.)
 - `kekkai update` self-updater.
 - VS Code / devcontainer-CLI integration.
 - Multiple sandboxes per folder.
