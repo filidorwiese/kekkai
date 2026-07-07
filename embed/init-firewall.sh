@@ -99,6 +99,9 @@ add_domain() { # $1=domain $2=fatal|warn
 # (the verification probe needs it); statsig may be absent from DNS.
 add_domain api.anthropic.com fatal
 add_domain statsig.anthropic.com warn
+# host.docker.internal (§5.4): resolves on macOS runtimes → Mac-host parity
+# with the Linux bridge-subnet allowance; on Linux it warn+skips.
+add_domain host.docker.internal warn
 
 # User domains (network.allowed_domains) — resolved once, warn+skip on failure.
 # The env lists are space-separated; IFS is newline+tab, so split explicitly.

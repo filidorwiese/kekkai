@@ -39,7 +39,9 @@ https://github.com/user-attachments/assets/252371a6-87f2-435d-aeb1-44f927bdca60
 
 Kekkai ships as a single static binary, installed to `~/.local/bin`.
 
-**Prerequisites:** Docker, git, curl. Linux x86_64 or aarch64.
+**Prerequisites:** Linux x86_64/aarch64, or macOS on Apple silicon. Docker (on macOS: Docker Desktop, OrbStack, colima, or any Docker-compatible runtime), git, curl.
+
+On macOS, Docker Desktop is maintainer-validated each release; other runtimes are supported via a capability preflight at `kekkai up` and community-validated.
 
 Quick install:
 
@@ -80,7 +82,7 @@ Each project needs a `.kekkai.yaml` at the project root. A working example:
 image:
   # Base image must be a node:* image; pin the Debian release
   # so apt package names stay stable
-  base_image: node:22-bookworm
+  base_image: node:24-trixie
   apt_packages: [golang]
 
 claude:
@@ -175,3 +177,6 @@ Know the trade-offs you're making:
 - Docker CLI inside the sandbox isn't supported: giving the agent access to the Docker socket would bypass the sandbox entirely.
 - The docker bridge subnet is always reachable: host services listening on `0.0.0.0` or the bridge IP, and neighbor containers on the same bridge, are exposed to the sandbox.
 - Docker is the boundary: kernel-level container escapes are out of scope.
+- macOS: shared-folder I/O is slower than native Linux binds.
+- macOS: the sandbox can reach Mac services via `host.docker.internal`, including those bound to localhost (unlike Linux bridge semantics).
+- macOS: `git.ssh_agent` needs the runtime to forward the agent into its VM (colima: start with `--ssh-agent`).

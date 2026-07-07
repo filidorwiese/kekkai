@@ -8,14 +8,22 @@ REPO="${KEKKAI_REPO:-filidorwiese/kekkai}"
 INSTALL_DIR="${KEKKAI_INSTALL_DIR:-$HOME/.local/bin}"
 
 case "$(uname -s)" in
-    Linux) ;;
-    *) echo "kekkai supports Linux only (got $(uname -s))" >&2; exit 1 ;;
-esac
-
-case "$(uname -m)" in
-    x86_64|amd64) ARCH=amd64 ;;
-    aarch64|arm64) ARCH=arm64 ;;
-    *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+    Linux)
+        OS=linux
+        case "$(uname -m)" in
+            x86_64|amd64) ARCH=amd64 ;;
+            aarch64|arm64) ARCH=arm64 ;;
+            *) echo "unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+        esac
+        ;;
+    Darwin)
+        OS=darwin
+        case "$(uname -m)" in
+            arm64) ARCH=arm64 ;;
+            *) echo "kekkai supports Apple silicon Macs only (Intel Macs are unsupported)" >&2; exit 1 ;;
+        esac
+        ;;
+    *) echo "kekkai supports Linux and macOS only (got $(uname -s))" >&2; exit 1 ;;
 esac
 
 VERSION="${KEKKAI_VERSION:-}"
@@ -28,18 +36,25 @@ if [ -z "$VERSION" ]; then
     exit 1
 fi
 
-TARBALL="kekkai_${VERSION}_linux_${ARCH}.tar.gz"
+TARBALL="kekkai_${VERSION}_${OS}_${ARCH}.tar.gz"
 BASE="https://github.com/${REPO}/releases/download/${VERSION}"
 
 TMP=$(mktemp -d)
 trap 'rm -rf "$TMP"' EXIT
 
-echo "downloading kekkai ${VERSION} (linux/${ARCH})"
+echo "downloading kekkai ${VERSION} (${OS}/${ARCH})"
 curl -fsSL "${BASE}/${TARBALL}" -o "${TMP}/${TARBALL}"
 curl -fsSL "${BASE}/SHA256SUMS" -o "${TMP}/SHA256SUMS"
 
+# macOS ships shasum, not sha256sum
+if command -v sha256sum >/dev/null 2>&1; then
+    SHA256="sha256sum"
+else
+    SHA256="shasum -a 256"
+fi
+
 cd "$TMP"
-grep " ${TARBALL}\$" SHA256SUMS | sha256sum -c - >/dev/null || {
+grep " ${TARBALL}\$" SHA256SUMS | $SHA256 -c - >/dev/null || {
     echo "checksum verification FAILED for ${TARBALL}" >&2
     exit 1
 }

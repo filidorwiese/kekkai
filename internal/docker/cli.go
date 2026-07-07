@@ -27,6 +27,23 @@ func run(args ...string) (string, error) {
 	return strings.TrimSpace(out.String()), nil
 }
 
+// ServerInfo identifies the docker server for preflight hint selection
+// (§7.4); identity decorates error messages only, never gates.
+type ServerInfo struct {
+	OperatingSystem string
+	Name            string
+}
+
+// Info returns the server's OperatingSystem and Name from `docker info`.
+func Info() (ServerInfo, error) {
+	out, err := run("info", "--format", "{{.OperatingSystem}}|{{.Name}}")
+	if err != nil {
+		return ServerInfo{}, err
+	}
+	os, name, _ := strings.Cut(out, "|")
+	return ServerInfo{OperatingSystem: os, Name: name}, nil
+}
+
 // ImageExists reports whether the tag resolves via `docker image inspect`.
 func ImageExists(tag string) bool {
 	cmd := exec.Command("docker", "image", "inspect", tag)

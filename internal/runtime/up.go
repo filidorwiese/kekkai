@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	goruntime "runtime"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,6 +33,10 @@ var builtinAptPackages = []string{
 
 const npmLatestURL = "https://registry.npmjs.org/@anthropic-ai/claude-code/latest"
 
+// darwinAgentSocket is where macOS runtimes (Docker Desktop, OrbStack,
+// colima --ssh-agent) forward the host SSH agent inside their VM (§5.2).
+const darwinAgentSocket = "/run/host-services/ssh-auth.sock"
+
 type UpOptions struct {
 	Force   bool
 	Verbose bool
@@ -54,7 +59,8 @@ func Up(opts UpOptions) (int, error) {
 	if cfg != nil {
 		errs = append(errs, config.Validate(cfg)...)
 		// At `up`, ssh_agent without a host socket is a hard error (§4.4).
-		if cfg.Git.SSHAgent && os.Getenv("SSH_AUTH_SOCK") == "" {
+		// Darwin uses the runtime VM socket instead; preflight verifies it (§7.4).
+		if cfg.Git.SSHAgent && goruntime.GOOS != "darwin" && os.Getenv("SSH_AUTH_SOCK") == "" {
 			errs = append(errs, fmt.Errorf("git.ssh_agent is true but $SSH_AUTH_SOCK is not set on the host"))
 		}
 	}
@@ -89,6 +95,11 @@ func Up(opts UpOptions) (int, error) {
 
 	imageTag, err := ensureImage(cfg, opts.Verbose)
 	if err != nil {
+		return 1, err
+	}
+
+	// darwin capability probe (§7.4); no-op elsewhere.
+	if err := preflight(cfg, pwd, imageTag); err != nil {
 		return 1, err
 	}
 
@@ -244,7 +255,13 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag string, opts UpOptions) ([]s
 		}
 	}
 	if cfg.Git.SSHAgent {
-		args = append(args, "-v", os.Getenv("SSH_AUTH_SOCK")+":/ssh-agent")
+		hostSock := os.Getenv("SSH_AUTH_SOCK")
+		if goruntime.GOOS == "darwin" {
+			// A Mac host socket cannot cross the VM boundary; every
+			// recognized runtime forwards the agent at this VM path (§5.2).
+			hostSock = darwinAgentSocket
+		}
+		args = append(args, "-v", hostSock+":/ssh-agent")
 		signers := filepath.Join(home, ".config", "git", "allowed_signers")
 		if _, err := os.Stat(signers); err == nil {
 			args = append(args, "-v", signers+":/home/kekkai/.config/git/allowed_signers:ro")

@@ -57,7 +57,7 @@ Strict parsing (`yaml.v3`, `KnownFields(true)`). Known keys from the pre-rewrite
 
 ```yaml
 image:
-  base_image: node:22-bookworm   # required; must match node:*
+  base_image: node:24-trixie     # required; must match node:*
   apt_packages: [golang]         # appended to builtin set (§5.1)
 
 claude:
