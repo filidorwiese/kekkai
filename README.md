@@ -95,8 +95,7 @@ claude:
 
 git:
   # true: mounts ~/.gitconfig (readonly) - your identity and settings;
-  # the agent can create local commits. Pushing/pulling works depending
-  # on your firewall rules (e.g. allow_github) and credentials.
+  # the agent can create local commits.
   # false (or section omitted): .git is mounted readonly - the agent
   # can read history (log, diff, show) but not commit or rewrite it.
   enabled: true

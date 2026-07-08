@@ -31,13 +31,16 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #   args: "--dangerously-skip-permissions"
 
 # git:
-#   # true: mounts your ~/.gitconfig read-only so commits carry your identity.
-#   # false/omitted: .git is mounted read-only - history readable, commits fail.
+#   # true: mounts ~/.gitconfig (readonly) - your identity and settings;
+#   # the agent can create local commits.
+#   # false (or section omitted): .git is mounted readonly - the agent
+#   # can read history (log, diff, show) but not commit or rewrite it.
 #   enabled: true
 #
-#   # true: mounts $SSH_AUTH_SOCK so git push/pull authenticates as you.
-#   # Requires git.enabled: true. The agent can then use your keys against any
-#   # allowed host - combine with a tight network section.
+#   # Exposes your SSH agent ($SSH_AUTH_SOCK) and allowed_signers file:
+#   # enables SSH commit signing and push/pull to allowed hosts.
+#   # Off by default - the agent can then act with all your loaded keys.
+#   # Requires git.enabled: true.
 #   ssh_agent: false
 
 # disk:
