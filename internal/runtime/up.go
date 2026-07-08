@@ -123,7 +123,7 @@ func Up(opts UpOptions) (int, error) {
 	select {
 	case msg := <-noticeCh:
 		if msg != "" {
-			fmt.Println(msg)
+			fmt.Println(yellow(os.Stdout, msg))
 		}
 	default:
 		// Check not finished — silent this run, goroutine abandoned.
@@ -131,16 +131,21 @@ func Up(opts UpOptions) (int, error) {
 	return docker.Interactive(args...)
 }
 
-// warnNoConfig prints the missing-config advisory (contract): one stderr
-// line, yellow only when stderr is a terminal and NO_COLOR is unset
-// (https://no-color.org).
-func warnNoConfig() {
-	msg := "warning: no .kekkai.yaml found, using defaults - run 'kekkai init' to customize"
-	if info, err := os.Stderr.Stat(); err == nil &&
+// yellow wraps msg in the advisory yellow only when f is a terminal and
+// NO_COLOR is unset (https://no-color.org). Both advisory lines (missing
+// config, update notice) go through here so the convention cannot diverge.
+func yellow(f *os.File, msg string) string {
+	if info, err := f.Stat(); err == nil &&
 		info.Mode()&os.ModeCharDevice != 0 && os.Getenv("NO_COLOR") == "" {
-		msg = "\033[33m" + msg + "\033[0m"
+		return "\033[33m" + msg + "\033[0m"
 	}
-	fmt.Fprintln(os.Stderr, msg)
+	return msg
+}
+
+// warnNoConfig prints the missing-config advisory (contract): one stderr line.
+func warnNoConfig() {
+	fmt.Fprintln(os.Stderr, yellow(os.Stderr,
+		"warning: no .kekkai.yaml found, using defaults - run 'kekkai init' to customize"))
 }
 
 // ensureImage resolves the claude version, renders the Dockerfile, and builds
