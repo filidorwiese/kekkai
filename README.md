@@ -8,6 +8,7 @@ Run Claude Code with confidence: a per-project sandbox with explicit control ove
 
 - [Why](#why)
 - [What you get](#what-you-get)
+- [Demo video](#demo-video)
 - [Install](#install)
 - [Usage](#usage)
 - [Configure](#configure)
@@ -48,9 +49,9 @@ Quick install:
 curl -fsSL https://raw.githubusercontent.com/filidorwiese/kekkai/main/install.sh | bash
 ```
 
-Or grab a binary directly from the [releases page](https://github.com/filidorwiese/kekkai/releases) and drop it in your PATH.
-
 Make sure `~/.local/bin` is on your PATH.
+
+Or manually grab a binary directly from the [releases page](https://github.com/filidorwiese/kekkai/releases) and drop it in your PATH.
 
 ## Usage
 
@@ -67,8 +68,6 @@ kekkai self-update # updates kekkai to the latest release
 kekkai version     # prints version
 ```
 `kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder and starts Claude Code inside it. The config file is optional - without one, kekkai runs on the baked-in defaults, which are intentionally restrictive.
-
-Additional flags: `--force` recreates a running sandbox, `--verbose` shows plain build progress. Anything after `--` is appended to the claude arguments, e.g. `kekkai up -- --model opus`.
 
 ## Configure
 
@@ -163,8 +162,8 @@ Kekkai protects against a misbehaving agent: prompt injection, malicious depende
 
 Know the trade-offs you're making:
 
-- Your Claude Code credentials must live inside the sandbox. Also, traffic to api.anthropic.com and statsig.anthropic.com is always allowed - that's unavoidable for Claude to function.
-- Any allowed network destination could be used for exfiltration - allow domains sparingly. DNS queries are a side channel too: the firewall constrains connections, not lookups.
+- Your Claude Code credentials must live inside the sandbox. Also, traffic to api.anthropic.com is always allowed - that's unavoidable for Claude to function. Anthropic's telemetry endpoints are allowed too, so sessions behave like a standard install.
+- Any allowed network destination could be used for exfiltration - allow domains sparingly. DNS lookups are unrestricted, so they're potentially a side channel too.
 - Secrets hiding is an explicit list: only the exact files/directories you name are shadowed. Anything else in mounted folders is readable - keep secrets out of the project folder where you can.
 - `~/.claude` is shared read-write so sessions persist - a compromised agent could alter hooks or skills you later run outside the sandbox. Review changes there as you would code.
 - `git.ssh_agent: true` exposes your SSH agent to the sandbox: the agent can sign, push, and authenticate as you against any allowed network destination. Enable per-project, deliberately.
