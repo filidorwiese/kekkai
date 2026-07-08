@@ -31,8 +31,9 @@ The creation of a `.kekkai.yaml` file in the project folder lets you define:
 
 Your Claude setup carries over into the sandbox: skills, hooks, session - everything in `~/.claude` - so it behaves exactly like your regular Claude Code, just contained.
 
+## Demo video
 
-https://github.com/user-attachments/assets/252371a6-87f2-435d-aeb1-44f927bdca60
+https://github.com/user-attachments/assets/bb8bdb6b-9f6e-434e-9a26-4efecbc7a2ca
 
 
 ## Install
@@ -166,14 +167,14 @@ Kekkai protects against a misbehaving agent: prompt injection, malicious depende
 
 Know the trade-offs you're making:
 
-- Your Claude Code credentials must live inside the sandbox - that's unavoidable for it to function.
-- Any allowed network destination could be used for exfiltration - allow domains sparingly. (Side channels like DNS queries exist too; the firewall constrains connections, not lookups.)
-- Secrets hiding is an explicit list: only the exact files you name are shadowed. Anything else in exposed folders is readable - keep secrets out of the project folder where you can.
+- Your Claude Code credentials must live inside the sandbox. Also traffic to api.anthropic.com and statsig.anthropic.com are always allowed - that's unavoidable for Claude to function.
+- Any allowed network destination could be used for exfiltration - allow domains sparingly. DNS queries are a side channel too: the firewall constrains connections, not lookups.
+- Secrets hiding is an explicit list: only the exact files/directories you name are shadowed. Anything else in mounted folders is readable - keep secrets out of the project folder where you can.
 - `~/.claude` is shared read-write so sessions persist - a compromised agent could alter hooks or skills you later run outside the sandbox. Review changes there as you would code.
 - `git.ssh_agent: true` exposes your SSH agent to the sandbox: the agent can sign, push, and authenticate as you against any allowed network destination. Enable per-project, deliberately.
 - Docker CLI inside the sandbox isn't supported: giving the agent access to the Docker socket would bypass the sandbox entirely.
 - The docker bridge subnet is always reachable: host services listening on `0.0.0.0` or the bridge IP, and neighbor containers on the same bridge, are exposed to the sandbox.
 - Docker is the boundary: kernel-level container escapes are out of scope.
 - macOS: shared-folder I/O is slower than native Linux binds.
-- macOS: the sandbox can reach Mac services via `host.docker.internal`, including those bound to localhost (unlike Linux bridge semantics).
+- macOS: the sandbox can reach Mac services via `host.docker.internal`, including those bound to localhost.
 - macOS: `git.ssh_agent` needs the runtime to forward the agent into its VM (colima: start with `--ssh-agent`).
