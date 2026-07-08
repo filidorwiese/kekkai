@@ -41,7 +41,7 @@ kekkai help        # usage
 ```
 
 - Stdlib `flag` per subcommand, dispatch in `cmd/kekkai/main.go`, logic in `internal/runtime/<name>.go` (`self-update` lives in `internal/selfupdate`: no docker involvement).
-- `up` flags: `--force` (recreate existing container), `--verbose` (plain buildkit progress). Args after `--` are appended to claude args.
+- `up` flags: `--force` (recreate existing container), `--verbose` (plain buildkit progress). Args after `--` are appended to claude args. Without a config file, `up` prints one stderr warning and continues on defaults (§4.1).
 - `up` update notice: after config validation passes, the latest-release check (same source as `self-update`, §10) runs concurrently with image/container work; immediately before the interactive handoff, if the check finished and found a newer release, print exactly one stdout line `A new version of kekkai is available (<installed> -> <latest>), run 'kekkai self-update' to upgrade`. Silent in every other case (current, ahead, dev build, lookup error/timeout, check unfinished, any `up` failure); never awaited, never affects exit status. Exact strings in `specs/005-update-notice/contracts/update-notice-cli.md`.
 - `self-update`: prints `Updated kekkai <from> -> <to>` on success, `You're on the latest version (<installed>)` when current, `You're ahead of the latest release (<installed> > <latest>)` when newer than the latest release; dev (unversioned) builds refuse and point at install.sh; `KEKKAI_REPO` overrides the repo slug (testing hook, install.sh precedent). Exact strings in `specs/003-self-update/contracts/self-update-cli.md`.
 - No `config` or `doctor` subcommands.
@@ -50,7 +50,7 @@ kekkai help        # usage
 
 ### 4.1 Model
 
-Single file: `./.kekkai.{yml,yaml}` at the workspace root. Both extensions accepted; both present is an error. **Required** — `up` without it errors: "no .kekkai.yaml found, run `kekkai init`". There are no merged yaml layers and no user-global config; all defaults are code-level constants (§5).
+Single file: `./.kekkai.{yml,yaml}` at the workspace root. Both extensions accepted; both present is an error. **Optional** — `up` without a config file runs on all defaults after exactly one stderr line, before any other output: `warning: no .kekkai.yaml found, using defaults - run 'kekkai init' to customize` (yellow only when stderr is a terminal and `NO_COLOR` is unset; exit status unaffected). A present but empty or comments-only file also means all defaults, silently — presence is the opt-in, emptiness means defaults. There are no merged yaml layers and no user-global config; all defaults are code-level constants (§5).
 
 Strict parsing (`yaml.v3`, `KnownFields(true)`). Known keys from earlier schemas (`image.base`, `image.base_image`, `image.claude_code_version`, `firewall`, `docker_access`, top-level `mounts`) produce a targeted error: schema changed, run `kekkai init`, see README.
 
@@ -122,9 +122,9 @@ limits:                          # optional; unlimited when omitted
 
 ### 4.5 `kekkai init`
 
-Writes a minimal starter: active keys `image.node_version` + `claude`, all optional sections present but commented out, with README-grade explanatory comments. Includes the commented `GH_TOKEN: ${GH_TOKEN}` env example next to `allow_github` — env passthrough is the supported gh auth path (host keyring tokens don't carry into containers; `gh` reads `GH_TOKEN` before `~/.config/gh/hosts.yml`).
+Writes a fully commented starter: every line is a comment or blank, so the fresh file parses as an empty document and runs on pure defaults (§4.1). Each setting appears commented out at its default value with README-grade explanatory comments; uncommenting is the single gesture to change it. The header states the file is optional and that the values shown are the defaults. Includes the commented `GH_TOKEN: ${GH_TOKEN}` env example next to `allow_github` — env passthrough is the supported gh auth path (host keyring tokens don't carry into containers; `gh` reads `GH_TOKEN` before `~/.config/gh/hosts.yml`).
 
-Copy/paste safety: active example values in the starter (and README example) must equal the defaults — pasting unchanged reproduces default behavior. Behavior-changing options (e.g. `--model` in `claude.args`) appear only in comments.
+Copy/paste safety: commented example values in the starter (and README example) must equal the defaults — uncommenting without editing reproduces default behavior. Behavior-changing options (e.g. `--model` in `claude.args`) appear only in comments.
 
 ## 5. Builtins (code constants, not user-visible config)
 

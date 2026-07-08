@@ -6,29 +6,30 @@ import (
 	"path/filepath"
 )
 
-// starterConfig: active values equal the code defaults (copy/paste safety,
-// §4.5); every optional section is present but commented, with README-grade
-// comments; behavior-changing examples appear only in comments.
+// starterConfig: every line is a comment or blank, so a fresh init parses as
+// an empty document and runs on pure defaults (§4.5). Commented example
+// values equal the code defaults (copy/paste safety); uncomment to change.
 const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
+# This file is optional: kekkai runs on defaults without it. Every setting
+# below is commented out and shows its default - uncomment to change it.
 # The container is the security boundary: Claude runs fully autonomous inside it.
-# Sections that are commented out are disabled.
 
-image:
-  # Node.js version for the sandbox: "lts" (default), "current", or a version like "24"
-  node_version: lts
+# image:
+#   # Node.js version for the sandbox: "lts" (default), "current", or a version like "24"
+#   node_version: lts
+#
+#   # Extra apt packages baked into the image, appended to kekkai's builtin set.
+#   # apt_packages: [golang]
 
-  # Extra apt packages baked into the image, appended to kekkai's builtin set.
-  # apt_packages: [golang]
-
-claude:
-  # "latest" (default) resolves the newest release at 'kekkai up', so a new
-  # Claude release triggers an image rebuild. Pin an exact version ("2.0.14")
-  # for a stable image.
-  version: latest
-
-  # Passed to claude verbatim, REPLACING the default - keep the flag below if
-  # you want autonomous mode. Example with a model: "--dangerously-skip-permissions --model opus"
-  args: "--dangerously-skip-permissions"
+# claude:
+#   # "latest" (default) resolves the newest release at 'kekkai up', so a new
+#   # Claude release triggers an image rebuild. Pin an exact version ("2.0.14")
+#   # for a stable image.
+#   version: latest
+#
+#   # Passed to claude verbatim, REPLACING the default - keep the flag below if
+#   # you want autonomous mode. Example with a model: "--dangerously-skip-permissions --model opus"
+#   args: "--dangerously-skip-permissions"
 
 # git:
 #   # true: mounts your ~/.gitconfig read-only so commits carry your identity.

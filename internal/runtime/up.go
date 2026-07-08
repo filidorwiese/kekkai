@@ -2,6 +2,7 @@ package runtime
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -57,6 +58,10 @@ func Up(opts UpOptions) (int, error) {
 	}
 
 	cfg, errs := config.Load(pwd)
+	if cfg == nil && len(errs) == 1 && errors.Is(errs[0], config.ErrNoConfig) {
+		warnNoConfig()
+		cfg, errs = config.Defaults(), nil
+	}
 	if cfg != nil {
 		errs = append(errs, config.Validate(cfg)...)
 		// At `up`, ssh_agent without a host socket is a hard error (§4.4).
@@ -124,6 +129,18 @@ func Up(opts UpOptions) (int, error) {
 		// Check not finished — silent this run, goroutine abandoned.
 	}
 	return docker.Interactive(args...)
+}
+
+// warnNoConfig prints the missing-config advisory (contract): one stderr
+// line, yellow only when stderr is a terminal and NO_COLOR is unset
+// (https://no-color.org).
+func warnNoConfig() {
+	msg := "warning: no .kekkai.yaml found, using defaults - run 'kekkai init' to customize"
+	if info, err := os.Stderr.Stat(); err == nil &&
+		info.Mode()&os.ModeCharDevice != 0 && os.Getenv("NO_COLOR") == "" {
+		msg = "\033[33m" + msg + "\033[0m"
+	}
+	fmt.Fprintln(os.Stderr, msg)
 }
 
 // ensureImage resolves the claude version, renders the Dockerfile, and builds

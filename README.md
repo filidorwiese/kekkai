@@ -71,11 +71,13 @@ kekkai version     # print version
 
 `kekkai up` flags: `--force` recreates a running sandbox, `--verbose` shows plain build progress. Anything after `--` is appended to the claude arguments, e.g. `kekkai up -- --model opus`.
 
-`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder and starts Claude Code inside it. The config file is required - `kekkai init` generates one with commented defaults to tune.
+`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder and starts Claude Code inside it. The config file is optional - without one, kekkai runs on the defaults after a one-line warning pointing at `kekkai init`.
 
 ## Configure
 
-Each project needs a `.kekkai.yaml` at the project root. A working example:
+A `.kekkai.yaml` at the project root customizes the sandbox; without one (or with an empty or fully commented file) kekkai runs on the defaults. Generate a fully commented starter with `kekkai init` - uncomment a setting to change it.
+
+A working example:
 
 ```yaml
 image:

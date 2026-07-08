@@ -3,7 +3,9 @@ package config
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -23,7 +25,9 @@ const (
 	debianRelease = "trixie"
 )
 
-// ErrNoConfig is the exact `up` error for a missing config (contracts/cli.md).
+// ErrNoConfig is Discover's not-found signal. Since the config file became
+// optional (§4.1), `up` answers it with a warning plus Defaults(), not an
+// abort; other callers may still require the file.
 var ErrNoConfig = fmt.Errorf("no .kekkai.yaml found, run 'kekkai init'")
 
 type Config struct {
@@ -154,7 +158,9 @@ func Load(dir string) (*Config, []error) {
 	cfg := &Config{}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
-	if err := dec.Decode(cfg); err != nil {
+	// io.EOF = empty document (zero-byte, whitespace- or comments-only file):
+	// presence is the opt-in, emptiness means defaults (§4.1).
+	if err := dec.Decode(cfg); err != nil && !errors.Is(err, io.EOF) {
 		if typeErr, ok := err.(*yaml.TypeError); ok {
 			// yaml.v3 fills what it can and accumulates field errors.
 			for _, msg := range typeErr.Errors {
@@ -170,6 +176,14 @@ func Load(dir string) (*Config, []error) {
 	cfg.imageKeysSet = presentSectionKeys(data, "image")
 	cfg.applyDefaults()
 	return cfg, errs
+}
+
+// Defaults is the configuration of a project without a config file: the zero
+// Config with all defaults applied (§4.1).
+func Defaults() *Config {
+	cfg := &Config{}
+	cfg.applyDefaults()
+	return cfg
 }
 
 func (c *Config) applyDefaults() {
