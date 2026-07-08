@@ -23,13 +23,13 @@ Kekkai confines it. With a Docker sandbox as the security boundary, Claude Code 
 
 `kekkai up` spins up the latest Claude Code inside a Docker container locked to the current folder, designed so nothing escapes it.
 
-The creation of a `.kekkai.yaml` file in the project folder lets you define:
+A `.kekkai.yaml` file in the project folder lets you define:
 
 - **Disk**: which folders to expose
 - **Network**: which outgoing traffic to allow
 - **Secrets**: which sensitive files to hide
 
-Your Claude setup carries over into the sandbox: skills, hooks, session - everything in `~/.claude` - so it behaves exactly like your regular Claude Code, just contained.
+Your Claude setup carries over into the sandbox: skills, hooks, sessions - everything in `~/.claude` - so it behaves exactly like your regular Claude Code, just contained.
 
 ## Demo video
 
@@ -59,25 +59,22 @@ From your project folder:
 ```sh
 kekkai init        # writes a starter .kekkai.yaml
 kekkai up          # builds the sandbox and drops you into Claude Code
-kekkai down        # stop and remove the sandbox for this folder
-kekkai shell       # open zsh in the running sandbox
-kekkai ps          # list running kekkai containers
-kekkai prune       # remove orphans (containers, images); --volumes for history vols
-kekkai self-update # update kekkai to the latest release
-kekkai version     # print version
+kekkai down        # stops and removes the sandbox for this folder
+kekkai shell       # opens zsh in the running sandbox
+kekkai ps          # lists running kekkai containers
+kekkai prune       # removes orphans (containers, images)
+kekkai self-update # updates kekkai to the latest release from GitHub
+kekkai version     # prints version
 ```
+`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder and starts Claude Code inside it. The config file is optional - without one, kekkai runs on the baked-in defaults, which are intentionally restrictive.
 
-`kekkai self-update` fetches the latest GitHub release, verifies its checksum and replaces the binary in place; development builds refuse and point at the installer.
-
-`kekkai up` flags: `--force` recreates a running sandbox, `--verbose` shows plain build progress. Anything after `--` is appended to the claude arguments, e.g. `kekkai up -- --model opus`.
-
-`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder and starts Claude Code inside it. The config file is optional - without one, kekkai runs on the defaults after a one-line warning pointing at `kekkai init`.
+Additional flags: `--force` recreates a running sandbox, `--verbose` shows plain build progress. Anything after `--` is appended to the claude arguments, e.g. `kekkai up -- --model opus`.
 
 ## Configure
 
-A `.kekkai.yaml` at the project root customizes the sandbox; without one (or with an empty or fully commented file) kekkai runs on the defaults. Generate a fully commented starter with `kekkai init` - uncomment a setting to change it.
+To customize the sandbox, generate a commented starter configuration with `kekkai init`. All blocks are optional - uncomment to alter.
 
-A working example:
+A full working example:
 
 ```yaml
 image:
@@ -93,13 +90,11 @@ claude:
   # Arguments to claude. This string replaces the default - keep
   # --dangerously-skip-permissions if you want autonomous mode
   # (the sandbox is the security boundary, so prompts are skipped).
-  # Append extras as needed, e.g. "--model claude-sonnet-4-6".
+  # Append extras as needed, e.g. "--model claude-sonnet-5".
   args: "--dangerously-skip-permissions"
 
-# Sections below are optional
-
 git:
-  # true: mounts ~/.gitconfig (readonly) - your identity and settings,
+  # true: mounts ~/.gitconfig (readonly) - your identity and settings;
   # the agent can create local commits. Pushing/pulling works depending
   # on your firewall rules (e.g. allow_github) and credentials.
   # false (or section omitted): .git is mounted readonly - the agent
@@ -169,13 +164,13 @@ Kekkai protects against a misbehaving agent: prompt injection, malicious depende
 
 Know the trade-offs you're making:
 
-- Your Claude Code credentials must live inside the sandbox. Also traffic to api.anthropic.com and statsig.anthropic.com are always allowed - that's unavoidable for Claude to function.
+- Your Claude Code credentials must live inside the sandbox. Also, traffic to api.anthropic.com and statsig.anthropic.com is always allowed - that's unavoidable for Claude to function.
 - Any allowed network destination could be used for exfiltration - allow domains sparingly. DNS queries are a side channel too: the firewall constrains connections, not lookups.
 - Secrets hiding is an explicit list: only the exact files/directories you name are shadowed. Anything else in mounted folders is readable - keep secrets out of the project folder where you can.
 - `~/.claude` is shared read-write so sessions persist - a compromised agent could alter hooks or skills you later run outside the sandbox. Review changes there as you would code.
 - `git.ssh_agent: true` exposes your SSH agent to the sandbox: the agent can sign, push, and authenticate as you against any allowed network destination. Enable per-project, deliberately.
 - Docker CLI inside the sandbox isn't supported: giving the agent access to the Docker socket would bypass the sandbox entirely.
-- The docker bridge subnet is always reachable: host services listening on `0.0.0.0` or the bridge IP, and neighbor containers on the same bridge, are exposed to the sandbox.
+- The Docker bridge subnet is always reachable: host services listening on `0.0.0.0` or the bridge IP, and neighbor containers on the same bridge, are exposed to the sandbox.
 - Docker is the boundary: kernel-level container escapes are out of scope.
 - macOS: shared-folder I/O is slower than native Linux binds.
 - macOS: the sandbox can reach Mac services via `host.docker.internal`, including those bound to localhost.
