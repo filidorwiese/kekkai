@@ -10,16 +10,15 @@ import (
 // an empty document and runs on pure defaults (§4.5). Commented example
 // values equal the code defaults (copy/paste safety); uncomment to change.
 const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
-# This file is optional: kekkai runs on defaults without it. Every setting
-# below is commented out and shows its default - uncomment to change it.
-# The container is the security boundary: Claude runs fully autonomous inside it.
+# This file is optional: kekkai runs on defaults without it.
+# Every setting below is optional - uncomment to change it.
 
 # image:
 #   # Node.js version for the sandbox: "lts" (default), "current", or a version like "24"
 #   node_version: lts
 #
 #   # Extra apt packages baked into the image, appended to kekkai's builtin set.
-#   # apt_packages: [golang]
+#   apt_packages: [golang]
 
 # claude:
 #   # "latest" (default) resolves the newest release at 'kekkai up', so a new
@@ -33,17 +32,17 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 
 # git:
 #   # true: mounts your ~/.gitconfig read-only so commits carry your identity.
-#   # false/omitted: .git is bound read-only - history readable, commits fail.
+#   # false/omitted: .git is mounted read-only - history readable, commits fail.
 #   enabled: true
 #
 #   # true: mounts $SSH_AUTH_SOCK so git push/pull authenticates as you.
-#   # Requires enabled: true. The agent can then use your keys against any
+#   # Requires git.enabled: true. The agent can then use your keys against any
 #   # allowed host - combine with a tight network section.
 #   ssh_agent: false
 
 # disk:
 #   mounts:
-#     - source: ~/.aws              # host path; ~ and ${VAR} expand
+#     - source: ~/.aws              # host path
 #       target: /home/kekkai/.aws   # optional - inferred when omitted
 #       readonly: true
 #       optional: true              # skip silently when the source is missing
@@ -69,8 +68,8 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #   allowed_cidrs:
 #     - 192.168.1.0/24
 #
-#   # Escape hatch: true disables the egress firewall entirely. Must be the
-#   # ONLY network key when set.
+#   # Escape hatch: true disables the egress firewall entirely.
+#   # Must be the ONLY network key when set.
 #   allow_all: false
 
 # secrets:
