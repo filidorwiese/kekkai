@@ -19,7 +19,7 @@ const usage = `kekkai — run Claude Code in a per-project Docker sandbox
 Usage: kekkai <command> [flags]
 
 Commands:
-  init        write starter .kekkai.yaml (errors if one exists)
+  init        write starter .kekkai.yaml
   up          build image if needed, start sandbox, exec claude
               flags: --force (recreate existing container)
                      --verbose (plain buildkit progress)

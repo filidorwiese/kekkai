@@ -63,7 +63,7 @@ kekkai down        # stops and removes the sandbox for this folder
 kekkai shell       # opens zsh in the running sandbox
 kekkai ps          # lists running kekkai containers
 kekkai prune       # removes orphans (containers, images)
-kekkai self-update # updates kekkai to the latest release from GitHub
+kekkai self-update # updates kekkai to the latest release
 kekkai version     # prints version
 ```
 `kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder and starts Claude Code inside it. The config file is optional - without one, kekkai runs on the baked-in defaults, which are intentionally restrictive.

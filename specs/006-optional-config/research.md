@@ -74,8 +74,8 @@ imply structure without content and would skip the R2 path for no benefit.
 ## R5: Documentation touch points
 
 **Decision**:
-- SPECIFICATION.md §3: `init` line loses "(errors if one exists)"? No — that
-  behavior is unchanged; only the §4.1 **Required** paragraph is rewritten:
+- SPECIFICATION.md §3: `init` line loses "(errors if one exists)"? Yes;
+  also the §4.1 **Required** paragraph is rewritten:
   optional, absent/empty/comments-only = defaults, exact warning line, both
   extensions/conflict rule preserved. §4.5 rewritten: fully commented starter,
   copy/paste-safety paragraph reworded (commented example values must equal

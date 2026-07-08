@@ -29,7 +29,7 @@ Protects against a misbehaving agent: prompt injection, malicious dependencies, 
 ## 3. CLI
 
 ```
-kekkai init        # write starter .kekkai.yaml (errors if one exists)
+kekkai init        # write starter .kekkai.yaml
 kekkai up          # build image if needed, start sandbox, exec claude
 kekkai down        # stop + remove the sandbox container for $PWD
 kekkai shell       # open zsh in the running sandbox for $PWD
