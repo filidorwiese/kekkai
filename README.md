@@ -33,7 +33,7 @@ Your Claude setup carries over into the sandbox: skills, hooks, sessions - every
 
 ## Demo video
 
-https://github.com/user-attachments/assets/bb8bdb6b-9f6e-434e-9a26-4efecbc7a2ca
+https://github.com/user-attachments/assets/64bfe8d3-e153-49d1-9485-3816f4b3b417
 
 
 ## Install
