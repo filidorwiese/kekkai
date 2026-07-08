@@ -26,6 +26,8 @@ Commands:
               args after -- are appended to claude args
   down        stop + remove the sandbox container for $PWD
   shell       open zsh in the running sandbox for $PWD
+  exec        run a command in the running sandbox for $PWD
+              args are passed verbatim; exits with the command's exit code
   ps          list running kekkai containers
   prune       remove orphan containers + unused kekkai:* images
               flags: --volumes (include history volumes)
@@ -56,6 +58,8 @@ func dispatch(args []string) int {
 		err = runtime.Down()
 	case "shell":
 		code, err = runtime.Shell()
+	case "exec":
+		code, err = execCommand(args[1:])
 	case "ps":
 		err = runtime.Ps()
 	case "prune":
@@ -107,6 +111,17 @@ func upCommand(args []string) (int, error) {
 		ExtraClaudeArgs: claudeArgs,
 		Version:         version,
 	})
+}
+
+func execCommand(args []string) (int, error) {
+	// No FlagSet: every word belongs to the user's command (FR-004).
+	if len(args) > 0 && args[0] == "--" {
+		args = args[1:]
+	}
+	if len(args) == 0 {
+		return 1, fmt.Errorf("usage: kekkai exec [--] <command> [args...]")
+	}
+	return runtime.Exec(args)
 }
 
 func pruneCommand(args []string) error {

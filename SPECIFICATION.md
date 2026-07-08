@@ -33,6 +33,7 @@ kekkai init        # write starter .kekkai.yaml
 kekkai up          # build image if needed, start sandbox, exec claude
 kekkai down        # stop + remove the sandbox container for $PWD
 kekkai shell       # open zsh in the running sandbox for $PWD
+kekkai exec        # run a command in the running sandbox for $PWD, exit code passed through
 kekkai ps          # list running kekkai containers
 kekkai prune       # remove orphan containers + unused kekkai:* images; --volumes adds history vols; --yes skips prompt
 kekkai self-update # update the binary to the latest GitHub release
@@ -44,6 +45,7 @@ kekkai help        # usage
 - `up` flags: `--force` (recreate existing container), `--verbose` (plain buildkit progress). Args after `--` are appended to claude args. Without a config file, `up` prints one stderr warning and continues on defaults (§4.1).
 - `up` update notice: after config validation passes, the latest-release check (same source as `self-update`, §10) runs concurrently with image/container work; immediately before the interactive handoff, if the check finished and found a newer release, print exactly one stdout line `A new version of kekkai is available (<installed> -> <latest>), run 'kekkai self-update' to upgrade` — rendered in the advisory yellow when stdout is a terminal and `NO_COLOR` is unset (same convention as the §4.1 missing-config warning). Silent in every other case (current, ahead, dev build, lookup error/timeout, check unfinished, any `up` failure); never awaited, never affects exit status. Exact strings in `specs/005-update-notice/contracts/update-notice-cli.md`.
 - `self-update`: prints `Updated kekkai <from> -> <to>` on success, `You're on the latest version (<installed>)` when current, `You're ahead of the latest release (<installed> > <latest>)` when newer than the latest release; dev (unversioned) builds refuse and point at install.sh; `KEKKAI_REPO` overrides the repo slug (testing hook, install.sh precedent). Exact strings in `specs/003-self-update/contracts/self-update-cli.md`.
+- `exec`: runs a one-off command in the running sandbox for `$PWD` (same label resolution as `shell`, never creates or removes containers) and exits with the command's exit code. Words after `exec` are passed verbatim (one optional leading `--` is stripped, no flags of its own); stdin is always forwarded, a TTY is allocated only when stdin is a terminal so pipes work. No running sandbox or missing command → stderr error, exit 1, nothing executed. Exact strings in `specs/009-exec-command/contracts/exec-cli.md`.
 - No `config` or `doctor` subcommands.
 
 ## 4. Configuration
