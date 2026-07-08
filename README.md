@@ -16,9 +16,9 @@ Run Claude Code with confidence: a per-project sandbox with explicit control ove
 
 ## Why
 
-An autonomous AI agent with access to your entire disk, the full internet, and every secret on your machine is risky: prompt injection or malicious code can turn it against you.
+An autonomous AI agent with access to your entire disk, the full internet, and every secret on your machine is risky: a wrong command, prompt injection, or malicious code can all do damage. The blast radius is your laptop.
 
-Kekkai confines it. With a Docker sandbox as the security boundary, Claude Code can safely run off the leash with `--dangerously-skip-permissions` - fully autonomous, no babysitting.
+Kekkai confines it. With a restrictive sandbox as the security boundary, Claude Code can safely run off the leash with `--dangerously-skip-permissions` - fully autonomous, no interruptions.
 
 ## What you get
 
@@ -68,7 +68,7 @@ kekkai prune       # removes orphans (containers, images)
 kekkai self-update # updates kekkai to the latest release
 kekkai version     # prints version
 ```
-`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder and starts Claude Code inside it. The config file is optional - without one, kekkai runs on the baked-in defaults, which are intentionally restrictive.
+`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder, and starts Claude Code inside it. The config file is optional - without one, kekkai runs on the baked-in defaults, which are intentionally restrictive.
 
 ## Configure
 
@@ -165,9 +165,9 @@ Kekkai protects against a misbehaving agent: prompt injection, malicious depende
 
 Know the trade-offs you're making:
 
-- Your Claude Code credentials must live inside the sandbox. Also, traffic to api.anthropic.com is always allowed - that's unavoidable for Claude to function. Other telemetry is disabled inside the sandbox.
+- Your Claude Code credentials must live inside the sandbox. Also, egress traffic to api.anthropic.com is always allowed. Both are necessary for Claude to function. Claude telemetry is disabled inside the sandbox.
 - Any allowed network destination could be used for exfiltration - allow domains sparingly. DNS lookups are unrestricted, so they're potentially a side channel too.
-- Secrets hiding is an explicit list: only the exact files/directories you name are shadowed. Anything else in mounted folders is readable - keep secrets out of the project folder where you can.
+- Secrets hiding is an explicit list: only the exact files/directories you name are shadowed. Anything else in mounted folders is readable. Keep secrets out of the project folder where you can.
 - `~/.claude` is shared read-write so sessions persist - a compromised agent could alter hooks or skills you later run outside the sandbox. Review changes there as you would code.
 - `git.ssh_agent: true` exposes your SSH agent to the sandbox: the agent can sign, push, and authenticate as you against any allowed network destination. Enable per-project, deliberately.
 - Docker CLI inside the sandbox isn't supported: giving the agent access to the Docker socket would bypass the sandbox entirely.
