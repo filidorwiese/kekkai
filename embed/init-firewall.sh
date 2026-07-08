@@ -96,9 +96,8 @@ add_domain() { # $1=domain $2=fatal|warn
 }
 
 # Builtin hosts (§5.4) — not user-removable. api.anthropic.com must resolve
-# (the verification probe needs it); statsig may be absent from DNS.
+# (the verification probe needs it).
 add_domain api.anthropic.com fatal
-add_domain statsig.anthropic.com warn
 # host.docker.internal (§5.4): resolves on macOS runtimes → Mac-host parity
 # with the Linux bridge-subnet allowance; on Linux it warn+skips.
 add_domain host.docker.internal warn

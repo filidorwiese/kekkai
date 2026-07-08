@@ -58,7 +58,7 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 
 # network:
 #   # Omitted network section = egress firewall on
-#   # Note: api.anthropic.com and statsig.anthropic.com are always allowed.
+#   # Note: api.anthropic.com (required by Claude Code) is always allowed.
 #
 #   # GitHub git/api/ssh via the api.github.com/meta CIDR list:
 #   allow_github: true

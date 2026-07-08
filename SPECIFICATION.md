@@ -147,11 +147,11 @@ Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsut
 
 ### 5.3 Env
 
-`CLAUDE_CONFIG_DIR=/home/kekkai/.claude`, `NODE_OPTIONS=--max-old-space-size=4096`, `POWERLEVEL9K_DISABLE_GITSTATUS=true`, `WORKSPACE=<basename $PWD>`. User env applied before firewall env so firewall vars stay authoritative.
+`CLAUDE_CONFIG_DIR=/home/kekkai/.claude`, `NODE_OPTIONS=--max-old-space-size=4096`, `POWERLEVEL9K_DISABLE_GITSTATUS=true`, `WORKSPACE=<basename $PWD>`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` (no telemetry, error reporting, or auto-update traffic from the sandbox; the baked-in claude version is the update path; a user `env` entry overrides it). User env applied after builtin env (docker last-value-wins) and before firewall env so firewall vars stay authoritative.
 
 ### 5.4 Always-allowed network destinations
 
-`api.anthropic.com`, `statsig.anthropic.com`, `host.docker.internal` (warn tier: resolves on macOS runtimes giving builtin Mac-host reachability — the darwin counterpart of the §9.3 bridge-subnet allowance; unresolvable on default-bridge Linux, so warn+skip there, no behavior change). Nothing else — not npm, not sentry. Baked into the firewall script, not user-removable, not listed in user config.
+`api.anthropic.com`, `host.docker.internal` (warn tier: resolves on macOS runtimes giving builtin Mac-host reachability — the darwin counterpart of the §9.3 bridge-subnet allowance; unresolvable on default-bridge Linux, so warn+skip there, no behavior change). Nothing else — not npm, not sentry, not telemetry (disabled via `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC`, §5.3). Baked into the firewall script, not user-removable, not listed in user config.
 
 ## 6. Image
 
@@ -215,7 +215,7 @@ Runs as root via the single sudoers grant, before claude starts. Inputs via env 
 1. Flush tables, preserve/restore Docker's embedded-DNS NAT rules.
 2. Allow loopback, DNS (udp 53), established/related. **No blanket port allowances** — specifically no global tcp/22 (the ipset match covers all ports to allowed IPs; ssh works to allowed destinations only).
 3. Always allow the docker bridge subnet, read from the container's own interface route — host reachability is builtin, not configurable. (The host's physical LAN is *not* reachable this way; container routes only see the bridge. LAN access = user adds the CIDR to `allowed_cidrs`.) On macOS the bridge only reaches the runtime's VM; builtin *Mac*-host reachability comes from the `host.docker.internal` builtin (§5.4) instead — same script, no platform branch.
-4. Build `allowed-domains` ipset: builtin hosts (§5.4, resolved via dig — `api.anthropic.com` failing to resolve is fatal since the verification probe needs it; `statsig.anthropic.com` may be absent from DNS, warn+skip) + `ALLOWED_DOMAINS` (dig, once, warn+skip on resolution failure) + `ALLOWED_CIDRS` (validated literals) + when `ALLOW_GITHUB=1`, CIDRs from `api.github.com/meta` (jq-validated, aggregated; fetch failure fatal only when github on — fetch happens pre-lockdown).
+4. Build `allowed-domains` ipset: builtin hosts (§5.4, resolved via dig — `api.anthropic.com` failing to resolve is fatal since the verification probe needs it) + `ALLOWED_DOMAINS` (dig, once, warn+skip on resolution failure) + `ALLOWED_CIDRS` (validated literals) + when `ALLOW_GITHUB=1`, CIDRs from `api.github.com/meta` (jq-validated, aggregated; fetch failure fatal only when github on — fetch happens pre-lockdown).
 5. Default policy DROP in/out/forward; allowed-set egress ACCEPT; reject rest with icmp-admin-prohibited.
 6. **Verification (never disable):** `https://example.com` must FAIL; `https://api.anthropic.com` must SUCCEED; when `ALLOW_GITHUB=1`, `https://api.github.com/zen` must SUCCEED. Any probe violation aborts startup.
 

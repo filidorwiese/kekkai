@@ -106,8 +106,10 @@ git:
 
 env:
   NODE_ENV: development
-  # gh CLI auth: pass your token through
+  # Github CLI auth: pass your token through
   GH_TOKEN: ${GH_TOKEN}
+  # Pass any Claude flag: https://code.claude.com/docs/en/env-vars
+  CLAUDE_CODE_NEW_INIT: 1
 
 disk:
   mounts:
@@ -118,8 +120,8 @@ disk:
       optional: true   # skip silently if source doesn't exist
 
 network:
-  # api.anthropic.com and statsig.anthropic.com (required by
-  # Claude Code) are always allowed and don't need to be listed
+  # api.anthropic.com (required by Claude Code) is always
+  # allowed and doesn't need to be listed
 
   # Escape hatch: disables the egress firewall entirely - the agent
   # can reach any destination. Can't be combined with the options
@@ -162,7 +164,7 @@ Kekkai protects against a misbehaving agent: prompt injection, malicious depende
 
 Know the trade-offs you're making:
 
-- Your Claude Code credentials must live inside the sandbox. Also, traffic to api.anthropic.com is always allowed - that's unavoidable for Claude to function. Anthropic's telemetry endpoints are allowed too, so sessions behave like a standard install.
+- Your Claude Code credentials must live inside the sandbox. Also, traffic to api.anthropic.com is always allowed - that's unavoidable for Claude to function. Other telemetry is disabled inside the sandbox.
 - Any allowed network destination could be used for exfiltration - allow domains sparingly. DNS lookups are unrestricted, so they're potentially a side channel too.
 - Secrets hiding is an explicit list: only the exact files/directories you name are shadowed. Anything else in mounted folders is readable - keep secrets out of the project folder where you can.
 - `~/.claude` is shared read-write so sessions persist - a compromised agent could alter hooks or skills you later run outside the sandbox. Review changes there as you would code.

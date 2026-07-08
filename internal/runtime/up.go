@@ -389,6 +389,9 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag string, opts UpOptions) ([]s
 	addEnv("NODE_OPTIONS", "--max-old-space-size=4096")
 	addEnv("POWERLEVEL9K_DISABLE_GITSTATUS", "true")
 	addEnv("WORKSPACE", filepath.Base(pwd))
+	// No telemetry/error-reporting/auto-update traffic (§5.3); the in-image
+	// claude version is the update path. User env below can override.
+	addEnv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
 	userKeys := make([]string, 0, len(cfg.Env))
 	for k := range cfg.Env {
 		userKeys = append(userKeys, k)
