@@ -60,6 +60,21 @@ func Run(version string) error {
 	return update(repo, version, latest, target)
 }
 
+// Notice returns a one-line update hint for `kekkai up` when a newer
+// release exists, or "" (dev build, current, ahead, any lookup error).
+// Same source of truth as Run, so the advertised version is always
+// what self-update would install.
+func Notice(version string) string {
+	if version == "dev" || !strings.HasPrefix(version, "v") {
+		return ""
+	}
+	latest, err := latestTag(repoSlug())
+	if err != nil || compareVersions(version, latest) != -1 {
+		return ""
+	}
+	return fmt.Sprintf("A new version of kekkai is available (%s -> %s), run 'kekkai self-update' to upgrade", version, latest)
+}
+
 func repoSlug() string {
 	// Same override install.sh honors; enables e2e against a fork.
 	if r := os.Getenv("KEKKAI_REPO"); r != "" {

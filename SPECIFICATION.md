@@ -42,6 +42,7 @@ kekkai help        # usage
 
 - Stdlib `flag` per subcommand, dispatch in `cmd/kekkai/main.go`, logic in `internal/runtime/<name>.go` (`self-update` lives in `internal/selfupdate`: no docker involvement).
 - `up` flags: `--force` (recreate existing container), `--verbose` (plain buildkit progress). Args after `--` are appended to claude args.
+- `up` update notice: after config validation passes, the latest-release check (same source as `self-update`, §10) runs concurrently with image/container work; immediately before the interactive handoff, if the check finished and found a newer release, print exactly one stdout line `A new version of kekkai is available (<installed> -> <latest>), run 'kekkai self-update' to upgrade`. Silent in every other case (current, ahead, dev build, lookup error/timeout, check unfinished, any `up` failure); never awaited, never affects exit status. Exact strings in `specs/005-update-notice/contracts/update-notice-cli.md`.
 - `self-update`: prints `Updated kekkai <from> -> <to>` on success, `You're on the latest version (<installed>)` when current, `You're ahead of the latest release (<installed> > <latest>)` when newer than the latest release; dev (unversioned) builds refuse and point at install.sh; `KEKKAI_REPO` overrides the repo slug (testing hook, install.sh precedent). Exact strings in `specs/003-self-update/contracts/self-update-cli.md`.
 - No `config` or `doctor` subcommands.
 
@@ -226,6 +227,7 @@ To allow a new destination: user config `network.*` — never by relaxing the sc
 - `install.sh` (curl-pipe from repo main): reads latest tag from GH API (or `KEKKAI_VERSION`), installs to `~/.local/bin/`. Darwin/arm64 supported; Darwin/x86_64 refused with "Apple silicon Macs only"; checksum via `sha256sum` or `shasum -a 256` fallback (macOS).
 - Host prerequisites: Docker-compatible runtime (macOS: Docker Desktop maintainer-validated; OrbStack/colima/others community-validated), git, curl.
 - `kekkai self-update`: downloads the same release artifacts install.sh consumes, verifies against `SHA256SUMS` before extraction, atomically replaces the running binary (same-directory rename); dev builds refuse; `KEKKAI_REPO` honored.
+- `kekkai up` advertises available updates via the same release source and version comparison (§3), so the advertised version is always what `self-update` installs.
 
 ## 11. Out of scope (do not add without discussion)
 

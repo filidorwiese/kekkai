@@ -16,6 +16,7 @@ import (
 	assets "kekkai/embed"
 	"kekkai/internal/config"
 	"kekkai/internal/docker"
+	"kekkai/internal/selfupdate"
 )
 
 // Builtin apt packages (§5.1) — code constants, user apt_packages appends.
@@ -75,6 +76,12 @@ func Up(opts UpOptions) (int, error) {
 		return 1, nil
 	}
 
+	// Update check runs concurrently with image/container work and is
+	// read non-blockingly at the handoff: never awaited, never an error,
+	// silent on the error paths above (§3).
+	noticeCh := make(chan string, 1)
+	go func() { noticeCh <- selfupdate.Notice(opts.Version) }()
+
 	// Refuse a second sandbox for the same directory unless --force (§7.2).
 	existing, err := docker.ContainersByLabel(LabelCwd + "=" + pwd)
 	if err != nil {
@@ -106,6 +113,15 @@ func Up(opts UpOptions) (int, error) {
 	args, err := buildRunArgs(cfg, pwd, imageTag, opts)
 	if err != nil {
 		return 1, err
+	}
+
+	select {
+	case msg := <-noticeCh:
+		if msg != "" {
+			fmt.Println(msg)
+		}
+	default:
+		// Check not finished — silent this run, goroutine abandoned.
 	}
 	return docker.Interactive(args...)
 }
