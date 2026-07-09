@@ -53,5 +53,8 @@ USER kekkai
 WORKDIR /workspace
 ENV SHELL=/bin/zsh
 
-# Firewall init must succeed before claude starts (§7.2)
-CMD ["/bin/sh", "-c", "sudo /usr/local/bin/init-firewall.sh && exec claude $CLAUDE_ARGS"]
+# Firewall init must succeed before claude starts (§7.2).
+# KEKKAI_SYSTEM_PROMPT expansions are quoted — the multiline sandbox context
+# must arrive byte-for-byte; CLAUDE_ARGS stays unquoted by design (flag
+# string). Empty/unset prompt var → identical command line to pre-011.
+CMD ["/bin/sh", "-c", "sudo /usr/local/bin/init-firewall.sh && if [ -n \"$KEKKAI_SYSTEM_PROMPT\" ]; then exec claude $CLAUDE_ARGS --append-system-prompt \"$KEKKAI_SYSTEM_PROMPT\"; else exec claude $CLAUDE_ARGS; fi"]

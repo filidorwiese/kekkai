@@ -105,7 +105,7 @@ func Up(opts UpOptions) (int, error) {
 		}
 	}
 
-	imageTag, err := ensureImage(cfg, opts.Verbose)
+	imageTag, claudeVersion, err := ensureImage(cfg, opts.Verbose)
 	if err != nil {
 		return 1, err
 	}
@@ -115,7 +115,7 @@ func Up(opts UpOptions) (int, error) {
 		return 1, err
 	}
 
-	args, err := buildRunArgs(cfg, pwd, imageTag, opts)
+	args, err := buildRunArgs(cfg, pwd, imageTag, claudeVersion, opts)
 	if err != nil {
 		return 1, err
 	}
@@ -150,8 +150,10 @@ func warnNoConfig() {
 
 // ensureImage resolves the claude version, renders the Dockerfile, and builds
 // on inspect miss (§6.1). Registry failure falls back to the newest existing
-// image with a matching kekkai.config_hash label (§6.2).
-func ensureImage(cfg *config.Config, verbose bool) (string, error) {
+// image with a matching kekkai.config_hash label (§6.2). The second return is
+// the resolved claude version — empty on the fallback path (version unknown),
+// which gates the sandbox-context injection (§5.3).
+func ensureImage(cfg *config.Config, verbose bool) (string, string, error) {
 	aptPackages := append(append([]string{}, builtinAptPackages...), cfg.Image.AptPackages...)
 	baseImage := cfg.Image.ResolvedBaseImage()
 	configHash := ConfigHash(baseImage, aptPackages, assets.FirewallScript)
@@ -162,17 +164,17 @@ func ensureImage(cfg *config.Config, verbose bool) (string, error) {
 		if err != nil {
 			tag, found := newestImageForConfig(configHash)
 			if !found {
-				return "", fmt.Errorf("could not resolve latest claude version (%v) and no existing kekkai image matches this config — retry online or pin claude.version", err)
+				return "", "", fmt.Errorf("could not resolve latest claude version (%v) and no existing kekkai image matches this config — retry online or pin claude.version", err)
 			}
 			fmt.Fprintf(os.Stderr, "warning: npm registry unreachable (%v), reusing existing image %s\n", err, tag)
-			return tag, nil
+			return tag, "", nil
 		}
 		version = resolved
 	}
 
 	rendered, err := renderDockerfile(baseImage, aptPackages, version)
 	if err != nil {
-		return "", err
+		return "", "", err
 	}
 	tag := ImageTag(rendered, assets.FirewallScript)
 	if !docker.ImageExists(tag) {
@@ -181,16 +183,16 @@ func ensureImage(cfg *config.Config, verbose bool) (string, error) {
 		// Best-effort only: skipped when the base image is already local, and
 		// an unreachable registry falls through to the pull error.
 		if !docker.ImageExists(baseImage) && baseImageMissing(baseImage) {
-			return "", fmt.Errorf(
+			return "", "", fmt.Errorf(
 				"image.node_version: %q has no published base image (%s not found on Docker Hub) — pick a version from https://hub.docker.com/_/node",
 				cfg.Image.NodeVersion, baseImage)
 		}
 		fmt.Printf("building image %s (claude %s)\n", tag, version)
 		if err := buildImage(tag, rendered, configHash, verbose); err != nil {
-			return "", err
+			return "", "", err
 		}
 	}
-	return tag, nil
+	return tag, version, nil
 }
 
 // baseImageMissing reports whether Docker Hub CONFIRMS the node tag does not
@@ -296,7 +298,8 @@ func buildImage(tag, renderedDockerfile, configHash string, verbose bool) error 
 // buildRunArgs assembles `docker run` args in the §7.3 order: caps → builtin
 // mounts → git mounts → disk.mounts → secrets shadows → builtin env → user
 // env → firewall env (authoritative) → CLAUDE_ARGS → limits → workdir.
-func buildRunArgs(cfg *config.Config, pwd, imageTag string, opts UpOptions) ([]string, error) {
+// claudeVersion gates the sandbox-context injection (§5.3); empty = unknown.
+func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts UpOptions) ([]string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, err
@@ -397,6 +400,20 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag string, opts UpOptions) ([]s
 	// No telemetry/error-reporting/auto-update traffic (§5.3); the in-image
 	// claude version is the update path. User env below can override.
 	addEnv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", "1")
+	// Sandbox awareness (§5.3): marker always; prompt only when the resolved
+	// claude supports --append-system-prompt interactively (specs/011).
+	addEnv("KEKKAI_SANDBOX", "1")
+	if supportsAppendPrompt(claudeVersion) {
+		addEnv("KEKKAI_SYSTEM_PROMPT", sandboxPromptFor(cfg))
+	} else {
+		v := claudeVersion
+		if v == "" {
+			v = "version unknown"
+		}
+		fmt.Fprintln(os.Stderr, yellow(os.Stderr, fmt.Sprintf(
+			"warning: claude %s does not support sandbox context injection (needs >= %s), starting without it",
+			v, appendPromptMinVersion)))
+	}
 	userKeys := make([]string, 0, len(cfg.Env))
 	for k := range cfg.Env {
 		userKeys = append(userKeys, k)

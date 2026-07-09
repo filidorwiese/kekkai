@@ -32,6 +32,8 @@ A `.kekkai.yaml` file in the project folder lets you define:
 
 Your Claude setup carries over into the sandbox: skills, hooks, sessions - everything in `~/.claude` - so it behaves exactly like your regular Claude Code, just contained.
 
+Claude also knows it's sandboxed: kekkai appends a short system-prompt note describing the restrictions, so when something is blocked, Claude suggests the right `.kekkai.yaml` change instead of hunting for workarounds. Scripts can detect the sandbox via `KEKKAI_SANDBOX=1`.
+
 ## Demo video
 
 https://github.com/user-attachments/assets/64bfe8d3-e153-49d1-9485-3816f4b3b417

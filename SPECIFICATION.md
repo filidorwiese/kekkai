@@ -149,7 +149,9 @@ Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsut
 
 ### 5.3 Env
 
-`CLAUDE_CONFIG_DIR=/home/kekkai/.claude`, `NODE_OPTIONS=--max-old-space-size=4096`, `POWERLEVEL9K_DISABLE_GITSTATUS=true`, `WORKSPACE=<basename $PWD>`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` (no telemetry, error reporting, or auto-update traffic from the sandbox; the baked-in claude version is the update path; a user `env` entry overrides it). User env applied after builtin env (docker last-value-wins) and before firewall env so firewall vars stay authoritative.
+`CLAUDE_CONFIG_DIR=/home/kekkai/.claude`, `NODE_OPTIONS=--max-old-space-size=4096`, `POWERLEVEL9K_DISABLE_GITSTATUS=true`, `WORKSPACE=<basename $PWD>`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` (no telemetry, error reporting, or auto-update traffic from the sandbox; the baked-in claude version is the update path; a user `env` entry overrides it), `KEKKAI_SANDBOX=1` (machine-readable sandbox marker). User env applied after builtin env (docker last-value-wins) and before firewall env so firewall vars stay authoritative.
+
+Sandbox awareness: `KEKKAI_SYSTEM_PROMPT` carries a pinned advisory prompt (constant in `internal/runtime/sandboxprompt.go`, plus a ≤10-line summary of allowed domains/CIDRs and shadowed files) that the CMD appends to Claude's system prompt via `--append-system-prompt` (§6.3) — never a replacing flag, never written to the workspace or `~/.claude`. Set only when the resolved claude version supports the flag interactively (>= 1.0.51); older or unknown (registry-fallback, §6.2) versions get one yellow warning and start without it — injection must never break startup. Exact strings in `specs/011-sandbox-awareness/contracts/sandbox-prompt.md`.
 
 ### 5.4 Always-allowed network destinations
 
@@ -178,6 +180,7 @@ At `up`, "latest" is resolved to the concrete current version via the npm regist
 - zsh history wired to `/commandhistory/.zsh_history`.
 - `init-firewall.sh` copied to `/usr/local/bin/`; the **only** sudoers grant: `kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh`, plus an `env_keep` Defaults line scoped to that command whitelisting exactly the four §9 input vars (sudo's env_reset would otherwise strip them; SETENV rejected — it would let arbitrary env through). No other sudo without strong reason.
 - No docker CLI.
+- CMD: firewall init, then `exec claude $CLAUDE_ARGS`, appending `--append-system-prompt "$KEKKAI_SYSTEM_PROMPT"` only when that var is non-empty (§5.3). The prompt var is expanded quoted (multiline text intact); `$CLAUDE_ARGS` stays unquoted by design (flag string). Empty var → command line identical to the pre-011 form.
 
 ## 7. Runtime
 
@@ -188,7 +191,7 @@ At `up`, "latest" is resolved to the concrete current version via the npm regist
 
 ### 7.2 Lifecycle
 
-`docker run --rm -it`; removed on claude exit, SIGINT, SIGTERM (signals forwarded by `internal/docker/exec.go`). Existing container for same `kekkai.cwd` → `up` refuses unless `--force`. CMD: `sudo /usr/local/bin/init-firewall.sh && exec claude $CLAUDE_ARGS`.
+`docker run --rm -it`; removed on claude exit, SIGINT, SIGTERM (signals forwarded by `internal/docker/exec.go`). Existing container for same `kekkai.cwd` → `up` refuses unless `--force`. CMD: `sudo /usr/local/bin/init-firewall.sh && exec claude $CLAUDE_ARGS [--append-system-prompt "$KEKKAI_SYSTEM_PROMPT"]` (append only when the var is non-empty, §6.3).
 
 ### 7.3 Run args assembly
 

@@ -49,7 +49,7 @@ func Run(version string) error {
 	}
 
 	// Equal or ahead returns before any download or temp file (SC-003).
-	switch compareVersions(version, latest) {
+	switch CompareVersions(version, latest) {
 	case 0:
 		fmt.Printf("You're on the latest version (%s)\n", version)
 		return nil
@@ -69,7 +69,7 @@ func Notice(version string) string {
 		return ""
 	}
 	latest, err := latestTag(repoSlug())
-	if err != nil || compareVersions(version, latest) != -1 {
+	if err != nil || CompareVersions(version, latest) != -1 {
 		return ""
 	}
 	return fmt.Sprintf("A new version of kekkai is available (%s -> %s), run 'kekkai self-update' to upgrade", version, latest)
@@ -145,9 +145,9 @@ func latestTag(repo string) (string, error) {
 	return release.TagName, nil
 }
 
-// compareVersions orders two vMAJOR.MINOR.PATCH strings by their
+// CompareVersions orders two vMAJOR.MINOR.PATCH strings by their
 // numeric core (-1/0/+1); pre-release/build suffixes are ignored.
-func compareVersions(a, b string) int {
+func CompareVersions(a, b string) int {
 	va, vb := parseSemver(a), parseSemver(b)
 	for i := range va {
 		if va[i] != vb[i] {
