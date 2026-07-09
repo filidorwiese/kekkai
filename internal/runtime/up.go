@@ -29,7 +29,7 @@ var builtinAptPackages = []string{
 	"curl", "ca-certificates", "jq", "aggregate",
 	// subcommands
 	"zsh",     // kekkai shell
-	"tcpdump", // kekkai watch (nflog reader)
+	"tcpdump", // kekkai traffic (nflog reader)
 	// convenience
 	"git", "gh", "less", "nano", "procps",
 }

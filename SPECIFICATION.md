@@ -34,7 +34,7 @@ kekkai up          # build image if needed, start sandbox, exec claude
 kekkai down        # stop + remove the sandbox container for $PWD
 kekkai shell       # open zsh in the running sandbox for $PWD
 kekkai exec        # run a command in the running sandbox for $PWD, exit code passed through
-kekkai watch       # stream egress traffic of the running sandbox for $PWD, labeled ALLOW/BLOCK
+kekkai traffic     # stream egress traffic of the running sandbox for $PWD, labeled ALLOW/BLOCK
 kekkai ps          # list running kekkai containers
 kekkai prune       # remove orphan containers + unused kekkai:* images; --volumes adds history vols; --yes skips prompt
 kekkai self-update # update the binary to the latest GitHub release
@@ -47,7 +47,7 @@ kekkai help        # usage
 - `up` update notice: after config validation passes, the latest-release check (same source as `self-update`, §10) runs concurrently with image/container work; immediately before the interactive handoff, if the check finished and found a newer release, print exactly one stdout line `A new version of kekkai is available (<installed> -> <latest>), run 'kekkai self-update' to upgrade` — rendered in the advisory yellow when stdout is a terminal and `NO_COLOR` is unset (same convention as the §4.1 missing-config warning). Silent in every other case (current, ahead, dev build, lookup error/timeout, check unfinished, any `up` failure); never awaited, never affects exit status. Exact strings in `specs/005-update-notice/contracts/update-notice-cli.md`.
 - `self-update`: prints `Updated kekkai <from> -> <to>` on success, `You're on the latest version (<installed>)` when current, `You're ahead of the latest release (<installed> > <latest>)` when newer than the latest release; dev (unversioned) builds refuse and point at install.sh; `KEKKAI_REPO` overrides the repo slug (testing hook, install.sh precedent). Exact strings in `specs/003-self-update/contracts/self-update-cli.md`.
 - `exec`: runs a one-off command in the running sandbox for `$PWD` (same label resolution as `shell`, never creates or removes containers) and exits with the command's exit code. Words after `exec` are passed verbatim (one optional leading `--` is stripped, no flags of its own); stdin is always forwarded, a TTY is allocated only when stdin is a terminal so pipes work. No running sandbox or missing command → stderr error, exit 1, nothing executed. Exact strings in `specs/009-exec-command/contracts/exec-cli.md`.
-- `watch`: streams a live, grep-able log of all sandbox egress — one event per line, each connection labeled by verdict (`ALLOW`/`BLOCK`, from the §9 NFLOG group it was logged to) with DNS queries/answers interleaved and connection lines annotated `(<hostname>)` from the session's DNS answers. Attaches to any already-running sandbox (no flags, no config, no restart — every sandbox is inspectable by default); observe-only, never alters verdicts or container state. Ctrl+C exits 0 and cleans up the in-container readers; sandbox stopping mid-watch → `sandbox stopped`, exit 1; no sandbox / pre-watch image → actionable stderr error, exit 1. Repeated identical events are suppressed for 5s (first occurrence always printed). Exact line formats and strings in `specs/010-inspect-egress/contracts/watch-cli.md`.
+- `traffic`: streams a live, grep-able log of all sandbox egress — one event per line, each connection labeled by verdict (`ALLOW`/`BLOCK`, from the §9 NFLOG group it was logged to) with DNS queries/answers interleaved and connection lines annotated `(<hostname>)` from the session's DNS answers. Attaches to any already-running sandbox (no flags, no config, no restart — every sandbox is inspectable by default); observe-only, never alters verdicts or container state. Ctrl+C exits 0 and cleans up the in-container readers; sandbox stopping mid-stream → `sandbox stopped`, exit 1; no sandbox / pre-traffic image → actionable stderr error, exit 1. Repeated identical events are suppressed for 5s (first occurrence always printed). Exact line formats and strings in `specs/013-rename-watch-traffic/contracts/traffic-cli.md`.
 - No `config` or `doctor` subcommands.
 
 ## 4. Configuration
@@ -138,7 +138,7 @@ Copy/paste safety: commented example values in the starter (and README example) 
 
 Baked into the Dockerfile template, user `apt_packages` appends only.
 
-Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsutils`, `curl`, `ca-certificates`, `jq`, `aggregate`. Required — subcommands: `zsh` (`kekkai shell`), `tcpdump` (`kekkai watch`: the NFLOG reader). Convenience: `git`, `gh`, `less`, `nano`, `procps`.
+Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsutils`, `curl`, `ca-certificates`, `jq`, `aggregate`. Required — subcommands: `zsh` (`kekkai shell`), `tcpdump` (`kekkai traffic`: the NFLOG reader). Convenience: `git`, `gh`, `less`, `nano`, `procps`.
 
 `jq`/`aggregate` only exercised on the `allow_github` path but stay baked: the image must be identical regardless of runtime config.
 
@@ -220,7 +220,7 @@ Exact paths only; no globs. Documented limit: files created later at other paths
 
 Runs as root via the single sudoers grant, before claude starts. Inputs via env injected by `kekkai up` (never via bind-mounted files — host-path binds unreliable across snap/SELinux/rootless/remote daemons): `ALLOW_ALL`, `ALLOW_GITHUB`, `ALLOWED_DOMAINS`, `ALLOWED_CIDRS`.
 
-`ALLOW_ALL=1` (from `network.allow_all`): the script applies no restrictions and skips verification, printing a prominent "egress firewall disabled" warning; only the observe-only NFLOG taps below are installed (group 1: DNS + NEW connections) so `kekkai watch` still streams — policies stay ACCEPT and no group 2 exists, everything logs as allowed. Everything else:
+`ALLOW_ALL=1` (from `network.allow_all`): the script applies no restrictions and skips verification, printing a prominent "egress firewall disabled" warning; only the observe-only NFLOG taps below are installed (group 1: DNS + NEW connections) so `kekkai traffic` still streams — policies stay ACCEPT and no group 2 exists, everything logs as allowed. Everything else:
 
 1. Flush tables, preserve/restore Docker's embedded-DNS NAT rules.
 2. Allow loopback, DNS (udp 53), established/related. **No blanket port allowances** — specifically no global tcp/22 (the ipset match covers all ports to allowed IPs; ssh works to allowed destinations only). The group-1 DNS taps (`--dport 53` OUTPUT, `--sport 53` INPUT) precede the loopback ACCEPTs — docker's embedded DNS rides `lo` post-NAT, so later rules would miss it.
@@ -229,7 +229,7 @@ Runs as root via the single sudoers grant, before claude starts. Inputs via env 
 5. Default policy DROP in/out/forward; allowed-set egress ACCEPT; reject rest with icmp-admin-prohibited.
 6. **Verification (never disable):** `https://example.com` must FAIL; `https://api.anthropic.com` must SUCCEED; when `ALLOW_GITHUB=1`, `https://api.github.com/zen` must SUCCEED. Any probe violation aborts startup.
 
-NFLOG taps (`kekkai watch`, specs/010): passive `-j NFLOG` rules feed group 1 (allowed: DNS packets + `--state NEW` connections) and group 2 (blocked: `--state NEW` immediately before the REJECT). Each `--state NEW` tap sits immediately adjacent to the verdict rule it mirrors (bridge ACCEPT, ipset ACCEPT, REJECT) so group membership is verdict-exact. NFLOG is a non-terminating target: packets continue to the unchanged ACCEPT/REJECT — the taps observe, they never decide. DROP policies, ACCEPT/REJECT lines, and the §9.6 probes are unaffected. Readers attach in-container via host-side `docker exec -u root tcpdump -i nflog:<group>` (§5.1) — the sudoers grant is unchanged.
+NFLOG taps (`kekkai traffic`, specs/010 renamed by specs/013): passive `-j NFLOG` rules feed group 1 (allowed: DNS packets + `--state NEW` connections) and group 2 (blocked: `--state NEW` immediately before the REJECT). Each `--state NEW` tap sits immediately adjacent to the verdict rule it mirrors (bridge ACCEPT, ipset ACCEPT, REJECT) so group membership is verdict-exact. NFLOG is a non-terminating target: packets continue to the unchanged ACCEPT/REJECT — the taps observe, they never decide. DROP policies, ACCEPT/REJECT lines, and the §9.6 probes are unaffected. Readers attach in-container via host-side `docker exec -u root tcpdump -i nflog:<group>` (§5.1) — the sudoers grant is unchanged.
 
 To allow a new destination: user config `network.*` — never by relaxing the script.
 

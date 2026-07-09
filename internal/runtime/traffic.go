@@ -16,12 +16,13 @@ import (
 	"kekkai/internal/docker"
 )
 
-// Watch streams a live, labeled log of the sandbox's egress for $PWD
-// (specs/010). Two in-container tcpdump readers attach to the observe-only
-// NFLOG groups the firewall installs (§9); group membership IS the verdict
-// (1 = allowed + DNS, 2 = blocked), so no fragile prefix parsing. Watch
-// never modifies firewall rules or container state (FR-005).
-func Watch() (int, error) {
+// Traffic streams a live, labeled log of the sandbox's egress for $PWD
+// (specs/010, renamed by specs/013). Two in-container tcpdump readers attach
+// to the observe-only NFLOG groups the firewall installs (§9); group
+// membership IS the verdict (1 = allowed + DNS, 2 = blocked), so no fragile
+// prefix parsing. Traffic never modifies firewall rules or container state
+// (FR-005).
+func Traffic() (int, error) {
 	pwd, err := os.Getwd()
 	if err != nil {
 		return 1, err
@@ -108,7 +109,7 @@ func Watch() (int, error) {
 			killReaders()
 			// 126/127 from docker exec = tcpdump missing in the image.
 			if code := exitCode(re.err); code == 126 || code == 127 {
-				fmt.Fprintln(os.Stderr, "sandbox image predates 'kekkai watch'; run 'kekkai down' and 'kekkai up' to rebuild")
+				fmt.Fprintln(os.Stderr, "sandbox image predates 'kekkai traffic'; run 'kekkai down' and 'kekkai up' to rebuild")
 				return 1, nil
 			}
 			// tcpdump announces `listening on nflog:N` once capture is
