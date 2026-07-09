@@ -22,7 +22,7 @@ outcomes per row; any deviation fails.
 |---|---|---|
 | 1 | `exec curl -sI --max-time 5 https://example.com` | `DNS   query example.com`, `DNS   answer example.com -> <ip>...`, `BLOCK tcp <ip>:443 (example.com)` (US1, US2, FR-002/003/004) |
 | 2 | `exec curl -sI --max-time 10 https://api.anthropic.com` | `DNS` lines + `ALLOW tcp <ip>:443 (api.anthropic.com)` (US1 all-traffic-labeled) |
-| 3 | Add `example.com` to `.kekkai.yaml` allowed_domains, `down` + `up`, repeat scenario 1 | Same destination now `ALLOW` (US1 scenario 3, SC-004) |
+| 3 | Add `example.org` to `.kekkai.yaml` allowed_domains (`example.com` itself must stay blocked — it is the §9.6 probe), `down` + `up`, `exec curl -sI --max-time 10 https://example.org` before and after | Destination flips `BLOCK` → `ALLOW` (US1 scenario 3, SC-004) |
 | 4 | `exec curl --max-time 5 -sI http://1.1.1.1` (raw IP, no DNS) | `BLOCK tcp 1.1.1.1:80` with no hostname annotation (edge case) |
 | 5 | Watch started only AFTER sandbox already ran for a while | Events still appear (FR-009 attach-anytime, no restart) |
 | 6 | Ctrl+C the watch (pty `\003` trick from feature 009) | Exit 0; `docker exec <id> pgrep -x tcpdump` finds nothing (FR-006, cleanup) |
