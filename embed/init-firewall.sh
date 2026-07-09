@@ -26,6 +26,15 @@ if [ "${ALLOW_ALL:-}" = "1" ]; then
 [kekkai] *  The agent has unrestricted network access.                 *
 [kekkai] ****************************************************************
 EOF
+    # Observe-only NFLOG for `kekkai watch` (§9): policies stay ACCEPT, no
+    # group 2 exists — everything is allowed, so everything logs as ALLOW.
+    # The NEW taps exclude udp/53: the DNS tap already logs those packets,
+    # and nothing terminates rule traversal here (no ACCEPT rules), so they
+    # would be logged twice.
+    iptables -A OUTPUT -p udp --dport 53 -j NFLOG --nflog-group 1
+    iptables -A INPUT -p udp --sport 53 -j NFLOG --nflog-group 1
+    iptables -A OUTPUT -m state --state NEW -p udp ! --dport 53 -j NFLOG --nflog-group 1
+    iptables -A OUTPUT -m state --state NEW ! -p udp -j NFLOG --nflog-group 1
     exit 0
 fi
 
@@ -67,6 +76,11 @@ fi
 # --- 2. base allowances: loopback, DNS (udp 53), established ----------------
 # No blanket port allowances — specifically no global tcp/22; the ipset match
 # covers all ports to allowed IPs.
+# NFLOG group-1 DNS taps for `kekkai watch` (§9): non-terminating, verdicts
+# unchanged. They must precede the lo ACCEPTs — docker's embedded DNS rides
+# lo post-NAT, so a later rule would miss it.
+iptables -A OUTPUT -p udp --dport 53 -j NFLOG --nflog-group 1
+iptables -A INPUT -p udp --sport 53 -j NFLOG --nflog-group 1
 iptables -A INPUT -i lo -j ACCEPT
 iptables -A OUTPUT -o lo -j ACCEPT
 iptables -A OUTPUT -p udp --dport 53 -j ACCEPT
@@ -83,6 +97,8 @@ if [ -z "$BRIDGE_SUBNET" ]; then
 fi
 echo "[kekkai] bridge subnet: $BRIDGE_SUBNET"
 iptables -A INPUT -s "$BRIDGE_SUBNET" -j ACCEPT
+# Observe-only NFLOG mirror of the bridge ACCEPT below (`kekkai watch`, §9).
+iptables -A OUTPUT -d "$BRIDGE_SUBNET" -m state --state NEW -j NFLOG --nflog-group 1
 iptables -A OUTPUT -d "$BRIDGE_SUBNET" -j ACCEPT
 
 # --- 4. build the allowed-domains ipset --------------------------------------
@@ -141,7 +157,12 @@ fi
 iptables -P INPUT DROP
 iptables -P FORWARD DROP
 iptables -P OUTPUT DROP
+# NFLOG taps for `kekkai watch` (§9): each log rule sits immediately before
+# the verdict rule it mirrors (group 1 = allowed, group 2 = blocked). NFLOG
+# is non-terminating — packets continue to the unchanged ACCEPT/REJECT.
+iptables -A OUTPUT -m set --match-set allowed-domains dst -m state --state NEW -j NFLOG --nflog-group 1
 iptables -A OUTPUT -m set --match-set allowed-domains dst -j ACCEPT
+iptables -A OUTPUT -m state --state NEW -j NFLOG --nflog-group 2
 iptables -A OUTPUT -j REJECT --reject-with icmp-admin-prohibited
 
 # --- 6. verification (never disabled) ----------------------------------------

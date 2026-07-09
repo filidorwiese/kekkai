@@ -99,8 +99,14 @@ func ContainersByLabel(filter string) ([]Container, error) {
 			continue
 		}
 		f := strings.Split(line, "\t")
-		if len(f) < 7 {
+		if len(f) < 5 {
 			continue
+		}
+		// run() trims trailing whitespace, which eats the final tabs of a
+		// line whose trailing labels are empty (e.g. containers from an old
+		// kekkai without version labels) — pad them back.
+		for len(f) < 7 {
+			f = append(f, "")
 		}
 		containers = append(containers, Container{
 			ID: f[0], Name: f[1], Status: f[2],

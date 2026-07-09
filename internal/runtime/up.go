@@ -28,7 +28,8 @@ var builtinAptPackages = []string{
 	"sudo", "iptables", "ipset", "iproute2", "dnsutils",
 	"curl", "ca-certificates", "jq", "aggregate",
 	// subcommands
-	"zsh",
+	"zsh",     // kekkai shell
+	"tcpdump", // kekkai watch (nflog reader)
 	// convenience
 	"git", "gh", "less", "nano", "procps",
 }

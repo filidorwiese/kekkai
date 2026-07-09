@@ -28,6 +28,8 @@ Commands:
   shell       open zsh in the running sandbox for $PWD
   exec        run a command in the running sandbox for $PWD
               args are passed verbatim; exits with the command's exit code
+  watch       stream egress traffic of the running sandbox for $PWD
+              connections labeled ALLOW/BLOCK, DNS queries inline
   ps          list running kekkai containers
   prune       remove orphan containers + unused kekkai:* images
               flags: --volumes (include history volumes)
@@ -60,6 +62,12 @@ func dispatch(args []string) int {
 		code, err = runtime.Shell()
 	case "exec":
 		code, err = execCommand(args[1:])
+	case "watch":
+		if len(args) > 1 {
+			err = fmt.Errorf("usage: kekkai watch (no arguments)")
+		} else {
+			code, err = runtime.Watch()
+		}
 	case "ps":
 		err = runtime.Ps()
 	case "prune":
