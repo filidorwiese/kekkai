@@ -36,8 +36,7 @@ Claude also knows it's sandboxed: kekkai appends a short system-prompt note desc
 
 ## Demo video
 
-https://github.com/user-attachments/assets/64bfe8d3-e153-49d1-9485-3816f4b3b417
-
+https://github.com/user-attachments/assets/f782a51f-06d0-4f0a-b202-c9e5ccf2262a
 
 ## Install
 
