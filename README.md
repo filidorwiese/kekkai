@@ -63,7 +63,7 @@ kekkai up          # builds the sandbox and drops you into Claude Code
 kekkai down        # stops and removes the sandbox for this folder
 kekkai shell       # opens zsh in the running sandbox
 kekkai exec        # runs a one-off command in the running sandbox
-kekkai watch       # streams live egress traffic, labeled ALLOW/BLOCK, DNS inline
+kekkai traffic     # streams live dns lookups/egress traffic, labeled ALLOW/BLOCK
 kekkai ps          # lists running kekkai containers
 kekkai prune       # removes orphans (containers, images)
 kekkai self-update # updates kekkai to the latest release
