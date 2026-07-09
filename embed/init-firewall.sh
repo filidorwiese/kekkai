@@ -185,4 +185,4 @@ if [ "${ALLOW_GITHUB:-}" = "1" ]; then
     echo "[kekkai] probe OK: https://api.github.com/zen reachable"
 fi
 echo "[kekkai] egress firewall active"
-clear
+echo
