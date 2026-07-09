@@ -35,7 +35,8 @@ mount under disk.mounts - and mention that changes take effect after restarting
 with ` + "`kekkai up`" + `. Configuration reference:
 https://github.com/filidorwiese/kekkai#configure
 
-These restrictions are chosen by the user. Work within them by default.`
+These restrictions are chosen by the user. Work within them by default.
+Begin your first response with: ⛩ Kekkai sandbox active - disk, network, and secrets are restricted per ` + "`.kekkai.yaml`" + `.`
 
 // supportsAppendPrompt gates injection on the resolved claude version.
 // Unknown (empty) version → false: an unrecognized flag would abort claude at
