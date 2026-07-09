@@ -1,5 +1,7 @@
 # Contract: `kekkai watch` CLI
 
+> **Superseded** by [specs/013-rename-watch-traffic/contracts/traffic-cli.md](../../013-rename-watch-traffic/contracts/traffic-cli.md) — the command was renamed to `kekkai traffic` (feature 013). Kept as a historical record.
+
 ## Invocation
 
 ```
