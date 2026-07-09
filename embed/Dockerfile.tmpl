@@ -1,6 +1,6 @@
-FROM {{.BaseImage}}
+FROM {{.DebianImage}}
 
-# Builtin + user apt packages (§5.1). gh is not in Debian bookworm, so the
+# Builtin + user apt packages (§5.1). gh is not in Debian repos, so the
 # GitHub CLI apt repo is added first; the keyring file needs no gpg tooling.
 RUN export DEBIAN_FRONTEND=noninteractive \
  && apt-get update \
@@ -15,16 +15,10 @@ RUN export DEBIAN_FRONTEND=noninteractive \
  && apt-get install -y --no-install-recommends{{range .AptPackages}} {{.}}{{end}} \
  && rm -rf /var/lib/apt/lists/*
 
-# Rename the node user to kekkai, preserving its UID (§6.3)
-RUN usermod -l kekkai node \
- && groupmod -n kekkai node \
- && usermod -d /home/kekkai -m kekkai
-
-# npm global prefix shared via PATH; claude installs there (§6.3)
-ENV NPM_CONFIG_PREFIX=/usr/local/share/npm-global
-ENV PATH=/usr/local/share/npm-global/bin:$PATH
-RUN mkdir -p /usr/local/share/npm-global \
- && chown -R kekkai:kekkai /usr/local/share/npm-global
+# Non-root sandbox user (§6.3): UID/GID 1000 — the same numeric identity the
+# old node-image user had, so workspace files stay owned by the host user.
+RUN groupadd -g 1000 kekkai \
+ && useradd -m -u 1000 -g kekkai -s /bin/zsh kekkai
 
 # zsh history persists in the /commandhistory volume (§6.3)
 RUN mkdir -p /commandhistory /workspace /home/kekkai/.claude \
@@ -34,9 +28,51 @@ RUN mkdir -p /commandhistory /workspace /home/kekkai/.claude \
       >> /home/kekkai/.zshrc \
  && chown kekkai:kekkai /home/kekkai/.zshrc
 
+# Node via nvm at image build time (§6.3): pinned nvm release tag, version
+# selector from image.node_version. Everything installs as the kekkai user
+# into its home, so runtime `npm install -g` never needs sudo and no
+# root-owned files land under /home/kekkai. No NPM_CONFIG_PREFIX: nvm
+# refuses to operate with an npm prefix set; globals live in the nvm
+# version dir.
+#
+# Build-time downloads (nvm installer/repo, nodejs.org tarballs, npm
+# registry) run on the docker daemon's host network — the egress firewall
+# does not exist until container start (§9). These domains are never
+# firewall inputs: not in network.allowed_domains, not in the §5.4 builtin
+# set.
+#
+# BASH_ENV sources nvm.sh into every non-interactive bash — the installer's
+# documented pattern for making `nvm` callable from build steps. bash
+# silently skips the file until it exists.
+ENV NVM_DIR=/home/kekkai/.nvm
+ENV BASH_ENV=/home/kekkai/.nvm-bash-env
+SHELL ["/bin/bash", "-c"]
 USER kekkai
+RUN curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/{{.NvmVersion}}/install.sh | bash \
+ && printf '. "$NVM_DIR/nvm.sh"\n' > "$BASH_ENV"
+
+# Install Node and freeze it: `lts` resolves to the current LTS here at
+# build time and never retroactively (§6.1 — the selector string, not the
+# resolved version, is what enters the image hash). The `current` symlink
+# gives version-independent paths for the /usr/local/bin links and PATH.
+RUN nvm install {{.NodeInstallArg}} \
+      || { echo "ERROR: Node version {{.NodeVersionRaw}} not found - check image.node_version in .kekkai.yaml" >&2; exit 1; } \
+ && nvm alias default "$(nvm current)" \
+ && ln -s "$NVM_DIR/versions/node/$(nvm current)" "$NVM_DIR/current"
+
 RUN npm install -g @anthropic-ai/claude-code@{{.ClaudeVersion}}
+
+# node/npm/npx/claude reachable from every exec path — docker exec, sh -c,
+# subprocesses — without profile sourcing (§6.3): stable symlinks in
+# /usr/local/bin plus PATH onto the live nvm bin dir (the PATH entry also
+# covers binaries added later by runtime `npm install -g`, and outranks any
+# Debian nodejs from user apt_packages).
 USER root
+RUN ln -s /home/kekkai/.nvm/current/bin/node /usr/local/bin/node \
+ && ln -s /home/kekkai/.nvm/current/bin/npm /usr/local/bin/npm \
+ && ln -s /home/kekkai/.nvm/current/bin/npx /usr/local/bin/npx \
+ && ln -s /home/kekkai/.nvm/current/bin/claude /usr/local/bin/claude
+ENV PATH=/home/kekkai/.nvm/current/bin:$PATH
 
 # The ONLY sudoers grant: the firewall script (§6.3). No docker CLI in image.
 # sudo resets the environment, so the four firewall input vars (§9) are
@@ -53,8 +89,11 @@ USER kekkai
 WORKDIR /workspace
 ENV SHELL=/bin/zsh
 
-# Firewall init must succeed before claude starts (§7.2).
+# Startup line first: the concrete Node version is only known in-image (nvm
+# resolved the selector at build), and the claude version was rendered at
+# build — so the line stays correct even on the §6.2 offline-fallback image.
+# Then firewall init, which must succeed before claude starts (§7.2).
 # KEKKAI_SYSTEM_PROMPT expansions are quoted — the multiline sandbox context
 # must arrive byte-for-byte; CLAUDE_ARGS stays unquoted by design (flag
 # string). Empty/unset prompt var → identical command line to pre-011.
-CMD ["/bin/sh", "-c", "sudo /usr/local/bin/init-firewall.sh && if [ -n \"$KEKKAI_SYSTEM_PROMPT\" ]; then exec claude $CLAUDE_ARGS --append-system-prompt \"$KEKKAI_SYSTEM_PROMPT\"; else exec claude $CLAUDE_ARGS; fi"]
+CMD ["/bin/sh", "-c", "echo \"kekkai sandbox: node $(node -v), claude {{.ClaudeVersion}}\" && sudo /usr/local/bin/init-firewall.sh && if [ -n \"$KEKKAI_SYSTEM_PROMPT\" ]; then exec claude $CLAUDE_ARGS --append-system-prompt \"$KEKKAI_SYSTEM_PROMPT\"; else exec claude $CLAUDE_ARGS; fi"]

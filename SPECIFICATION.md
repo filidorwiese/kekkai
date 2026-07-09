@@ -62,7 +62,7 @@ Strict parsing (`yaml.v3`, `KnownFields(true)`). Known keys from earlier schemas
 
 ```yaml
 image:
-  node_version: lts              # node version selector; default "lts"
+  node_version: lts              # "lts" (default) or 22 / 22.11 / 22.11.0; installed at build time (§6.1)
   apt_packages: [golang]         # appended to builtin set (§5.1)
 
 claude:
@@ -115,7 +115,7 @@ limits:                          # optional; unlimited when omitted
 
 `kekkai up` validates the full document as its first step — strict schema (unknown keys/types via `KnownFields`) plus all semantic checks below — and aborts before any docker work (version resolution, image build, container run). Report all violations in one pass, not first-error-only.
 
-- `image.node_version`: plain version selector matching `^[a-z0-9.]+$` (e.g. `24`, `24.3.0`, `lts`, `current`). Absent key defaults to `lts`; explicit empty value is an error (a mistake, not a default request). Resolved internally to `node:<version>-<debian release>` — the Debian release is a code constant (currently `trixie`), never user input. Existence of the tag is not checked here (§6.1 pre-check).
+- `image.node_version`: exactly the four accepted forms, `^(lts|[0-9]+(\.[0-9]+){0,2})$` — `lts`, major (`22`), major.minor (`22.11`), full (`22.11.0`). Installer aliases (`node`, `stable`, `current`, `lts/*`, `lts/<codename>`) are rejected with an error naming the accepted forms: the value set is kekkai's contract, not the installer's. Absent key defaults to `lts`; explicit empty value is an error (a mistake, not a default request). Node is installed at image build time via nvm (§6.1) — the base image is a code constant (`debian:trixie`), never user input. Existence of a well-formed version is not checkable here; it surfaces at build time with an error naming this key (§6.1).
 - `claude.version`: "latest" or exact npm version string.
 - Mounts: source required, no duplicate targets.
 - `git.ssh_agent: true` requires `git.enabled: true` — validation error otherwise. At `up` on linux, `ssh_agent: true` with unset `$SSH_AUTH_SOCK` on host is a hard error (no silent skip). On darwin the equivalent check is the preflight agent-socket probe (§7.4) — same principle: never proceed silently without the agent.
@@ -138,7 +138,7 @@ Copy/paste safety: commented example values in the starter (and README example) 
 
 Baked into the Dockerfile template, user `apt_packages` appends only.
 
-Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsutils`, `curl`, `ca-certificates`, `jq`, `aggregate`. Required — subcommands: `zsh` (`kekkai shell`), `tcpdump` (`kekkai traffic`: the NFLOG reader). Convenience: `git`, `gh`, `less`, `nano`, `procps`.
+Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsutils`, `curl`, `ca-certificates`, `jq`, `aggregate`, `bash` (nvm dependency; present in the Debian base, listed to pin it). Required — subcommands: `zsh` (`kekkai shell`), `tcpdump` (`kekkai traffic`: the NFLOG reader). Convenience: `git`, `gh`, `less`, `nano`, `procps`.
 
 `jq`/`aggregate` only exercised on the `allow_github` path but stay baked: the image must be identical regardless of runtime config.
 
@@ -166,11 +166,11 @@ Sandbox awareness: `KEKKAI_SYSTEM_PROMPT` carries a pinned advisory prompt (cons
 
 ### 6.1 Bake-time inputs (and nothing else)
 
-Dockerfile template (`embed/Dockerfile.tmpl`) rendered with: the resolved base image (`node:<image.node_version>-<debian release>`), builtin + user `apt_packages`, resolved `claude.version`. Image hash = `sha256(rendered Dockerfile + embed/init-firewall.sh)[:12]`, tag `kekkai:<hash>`. Built on demand only when `docker image inspect` misses.
+Dockerfile template (`embed/Dockerfile.tmpl`) rendered with: the platform constants (base image `debian:trixie`, nvm release tag — both kekkai-owned, changed only via code releases; the nvm tag is never `master`/`latest`), the `image.node_version` selector, builtin + user `apt_packages`, resolved `claude.version`. Image hash = `sha256(rendered Dockerfile + embed/init-firewall.sh)[:12]`, tag `kekkai:<hash>`. Built on demand only when `docker image inspect` misses.
 
-Before a build whose base image is not present locally, a best-effort Docker Hub manifest check (anonymous token + manifest `HEAD`, 10s timeout) confirms the node tag exists: a confirmed 404 aborts with an error naming `image.node_version`; any other outcome (timeout, transport error, unexpected status) is inconclusive and the build proceeds — an unreachable registry must never block offline use, the pull error remains the fallback.
+Node installs at build time via the pinned nvm release: `lts` translates to the installer's latest-LTS selector, numeric selectors pass through (nvm resolves `22`/`22.11` to the newest match). The resolved version is frozen in the image — the selector string, not the resolution, enters the hash, so a newer LTS release never invalidates an existing image. A well-formed but nonexistent version fails the build with an error naming `image.node_version`. Build-time downloads (nvm installer/repo, nodejs.org, npm registry) run on the docker daemon's host network — the egress firewall does not exist until container start; these domains are never firewall inputs (§5.4 unchanged, nothing required in `network.allowed_domains`).
 
-Each image additionally carries label `kekkai.config_hash = sha256(resolved base image + "\n" + builtin+user apt_packages + "\n" + embed/init-firewall.sh)[:12]` — the bake inputs *minus* the claude version. It exists solely so the §6.2 offline fallback can find images built for this config; it never keys builds.
+Each image additionally carries label `kekkai.config_hash = sha256(debian base + "\n" + nvm tag + "\n" + node_version selector + "\n" + builtin+user apt_packages + "\n" + embed/init-firewall.sh)[:12]` — the bake inputs *minus* the claude version. It exists solely so the §6.2 offline fallback can find images built for this config; it never keys builds.
 
 Everything else (mounts, env, network, secrets, limits, claude.args) is runtime input — must never trigger a rebuild, must never enter the hash.
 
@@ -180,12 +180,14 @@ At `up`, "latest" is resolved to the concrete current version via the npm regist
 
 ### 6.3 Dockerfile contract
 
-- Base `node:*`; `node` user renamed to `kekkai` (UID preserved), home `/home/kekkai`.
-- npm global prefix `/usr/local/share/npm-global`, claude installed there.
+- Base `debian:trixie` (code constant); user `kekkai` created with UID/GID 1000 (the numeric identity the old node-image user had — workspace files stay host-owned), home `/home/kekkai`, shell zsh.
+- Node via nvm as the `kekkai` user into `/home/kekkai/.nvm` — never as root, so runtime `npm install -g` needs no sudo and no root-owned files land in the home. No `NPM_CONFIG_PREFIX` (nvm refuses to operate with an npm prefix set); npm globals live in the nvm version dir. Build steps invoke nvm via `BASH_ENV` sourcing `nvm.sh` (the installer's non-interactive pattern).
+- Exec-path guarantee: stable symlink `/home/kekkai/.nvm/current` → the resolved version dir; root-created symlinks `/usr/local/bin/{node,npm,npx,claude}` → `current/bin/`; `ENV PATH` prepends `current/bin` (also covers binaries added later by runtime `npm install -g`, and outranks a Debian `nodejs` from user `apt_packages`). `node`/`npm`/`npx`/`claude` work from every exec path — `docker exec`, `sh -c`, subprocesses — without profile sourcing.
+- claude installed via `npm install -g @anthropic-ai/claude-code@<resolved claude.version>` as `kekkai`.
 - zsh history wired to `/commandhistory/.zsh_history`.
 - `init-firewall.sh` copied to `/usr/local/bin/`; the **only** sudoers grant: `kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh`, plus an `env_keep` Defaults line scoped to that command whitelisting exactly the four §9 input vars (sudo's env_reset would otherwise strip them; SETENV rejected — it would let arbitrary env through). No other sudo without strong reason.
 - No docker CLI.
-- CMD: firewall init, then `exec claude $CLAUDE_ARGS`, appending `--append-system-prompt "$KEKKAI_SYSTEM_PROMPT"` only when that var is non-empty (§5.3). The prompt var is expanded quoted (multiline text intact); `$CLAUDE_ARGS` stays unquoted by design (flag string). Empty var → command line identical to the pre-011 form.
+- CMD: first a startup line `kekkai sandbox: node <x.y.z>, claude <version>` (node version read live — only the image knows what nvm resolved; claude version rendered at build, so the line is correct even on the §6.2 fallback image), then firewall init, then `exec claude $CLAUDE_ARGS`, appending `--append-system-prompt "$KEKKAI_SYSTEM_PROMPT"` only when that var is non-empty (§5.3). The prompt var is expanded quoted (multiline text intact); `$CLAUDE_ARGS` stays unquoted by design (flag string). Empty var → command line identical to the pre-011 form.
 
 ## 7. Runtime
 
@@ -196,7 +198,7 @@ At `up`, "latest" is resolved to the concrete current version via the npm regist
 
 ### 7.2 Lifecycle
 
-`docker run --rm -it`; removed on claude exit, SIGINT, SIGTERM (signals forwarded by `internal/docker/exec.go`). Existing container for same `kekkai.cwd` → `up` refuses unless `--force`. CMD: `sudo /usr/local/bin/init-firewall.sh && exec claude $CLAUDE_ARGS [--append-system-prompt "$KEKKAI_SYSTEM_PROMPT"]` (append only when the var is non-empty, §6.3).
+`docker run --rm -it`; removed on claude exit, SIGINT, SIGTERM (signals forwarded by `internal/docker/exec.go`). Existing container for same `kekkai.cwd` → `up` refuses unless `--force`. CMD: startup version line, then `sudo /usr/local/bin/init-firewall.sh && exec claude $CLAUDE_ARGS [--append-system-prompt "$KEKKAI_SYSTEM_PROMPT"]` (append only when the var is non-empty, §6.3).
 
 ### 7.3 Run args assembly
 

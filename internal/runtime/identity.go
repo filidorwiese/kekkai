@@ -9,6 +9,8 @@ import (
 	"encoding/hex"
 	"path/filepath"
 	"strings"
+
+	"kekkai/internal/config"
 )
 
 const (
@@ -59,7 +61,10 @@ func ImageTag(renderedDockerfile, firewallScript string) string {
 
 // ConfigHash is the version-independent bake-input hash stored as the
 // kekkai.config_hash image label. It keys the §6.2 offline fallback only,
-// never builds.
-func ConfigHash(baseImage string, aptPackages []string, firewallScript string) string {
-	return shortHash(baseImage+"\n"+strings.Join(aptPackages, " ")+"\n"+firewallScript, 12)
+// never builds. Inputs: the platform constants (Debian base, nvm tag), the
+// node_version selector, apt packages, firewall script — the bake inputs
+// minus the claude version.
+func ConfigHash(nodeVersion string, aptPackages []string, firewallScript string) string {
+	return shortHash(config.DebianBaseImage+"\n"+config.NvmVersion+"\n"+nodeVersion+
+		"\n"+strings.Join(aptPackages, " ")+"\n"+firewallScript, 12)
 }

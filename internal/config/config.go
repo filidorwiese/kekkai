@@ -20,9 +20,12 @@ const (
 	DefaultClaudeVersion = "latest"
 	DefaultClaudeArgs    = "--dangerously-skip-permissions"
 
-	// debianRelease pins the Debian flavor of the node base image; the user
-	// only picks the node version (§4.2).
-	debianRelease = "trixie"
+	// Platform constants (§6.1): the sandbox base image and the nvm release
+	// that installs Node at build time. Both are kekkai-owned bake-time
+	// inputs, changed only via code releases — the user only picks the node
+	// version (§4.2). NvmVersion must be a release tag, never master/latest.
+	DebianBaseImage = "debian:trixie"
+	NvmVersion      = "v0.40.5"
 )
 
 // ErrNoConfig is Discover's not-found signal. Since the config file became
@@ -54,10 +57,16 @@ type ImageConfig struct {
 	AptPackages []string `yaml:"apt_packages"`
 }
 
-// ResolvedBaseImage is the only place the node version becomes an image
-// reference; the Debian release is pinned, never user input (§4.2).
-func (i ImageConfig) ResolvedBaseImage() string {
-	return "node:" + i.NodeVersion + "-" + debianRelease
+// NodeInstallArg translates the validated node_version selector into the
+// nvm install argument: the user-facing "lts" stays decoupled from installer
+// syntax so the installer can change without a schema change. Numeric
+// selectors pass through verbatim — nvm resolves partial versions (22,
+// 22.11) to the newest matching release.
+func (i ImageConfig) NodeInstallArg() string {
+	if i.NodeVersion == DefaultNodeVersion {
+		return "--lts"
+	}
+	return i.NodeVersion
 }
 
 type ClaudeConfig struct {

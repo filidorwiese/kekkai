@@ -14,7 +14,8 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 # Every setting below is optional - uncomment to change it.
 
 # image:
-#   # Node.js version for the sandbox: "lts" (default), "current", or a version like "24"
+#   # Node.js version, installed at image build time: "lts" (default) or a
+#   # version number like "22", "22.11" or "22.11.0"
 #   node_version: lts
 #
 #   # Extra apt packages baked into the image, appended to kekkai's builtin set.
