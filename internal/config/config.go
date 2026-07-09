@@ -114,28 +114,29 @@ var legacyKeys = map[string]string{
 	"mounts":                    "disk.mounts",
 }
 
-// Discover finds the config file in dir. Both .kekkai.yml and .kekkai.yaml
-// present is an error; neither present returns ErrNoConfig.
+// Discover finds the config file in dir. Only .kekkai.yaml is recognized; a
+// .kekkai.yml entry of any kind is rejected as a typo rather than silently
+// ignored — falling back to defaults would drop the user's restrictions
+// (specs/012). Neither present returns ErrNoConfig.
 func Discover(dir string) (string, error) {
-	ymlPath := filepath.Join(dir, ".kekkai.yml")
-	yamlPath := filepath.Join(dir, ".kekkai.yaml")
-	ymlExists := fileExists(ymlPath)
-	yamlExists := fileExists(yamlPath)
-	switch {
-	case ymlExists && yamlExists:
-		return "", fmt.Errorf("both .kekkai.yml and .kekkai.yaml exist, remove one")
-	case ymlExists:
-		return ymlPath, nil
-	case yamlExists:
-		return yamlPath, nil
-	default:
-		return "", ErrNoConfig
+	// Lstat, not Stat: directories, sockets, and dangling symlinks named
+	// .kekkai.yml all signal the same user confusion.
+	if _, err := os.Lstat(filepath.Join(dir, ".kekkai.yml")); err == nil {
+		return "", fmt.Errorf("found .kekkai.yml - kekkai only reads .kekkai.yaml; rename it: mv .kekkai.yml .kekkai.yaml")
 	}
-}
-
-func fileExists(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && info.Mode().IsRegular()
+	yamlPath := filepath.Join(dir, ".kekkai.yaml")
+	if info, err := os.Stat(yamlPath); err == nil {
+		if info.Mode().IsRegular() {
+			return yamlPath, nil
+		}
+		return "", fmt.Errorf(".kekkai.yaml is not a regular file - remove or rename it")
+	}
+	// A dangling symlink would break the read-only bind mount at `up`
+	// (specs/012 contract §3), so it cannot pass as "no config".
+	if _, err := os.Lstat(yamlPath); err == nil {
+		return "", fmt.Errorf(".kekkai.yaml is not a regular file - remove or rename it")
+	}
+	return "", ErrNoConfig
 }
 
 // Load discovers, parses (strict) and applies defaults. Parse-level

@@ -52,7 +52,7 @@ kekkai help        # usage
 
 ### 4.1 Model
 
-Single file: `./.kekkai.{yml,yaml}` at the workspace root. Both extensions accepted; both present is an error. **Optional** — `up` without a config file runs on all defaults after exactly one stderr line, before any other output: `warning: no .kekkai.yaml found, using defaults - run 'kekkai init' to customize` (yellow only when stderr is a terminal and `NO_COLOR` is unset; exit status unaffected). A present but empty or comments-only file also means all defaults, silently — presence is the opt-in, emptiness means defaults. There are no merged yaml layers and no user-global config; all defaults are code-level constants (§5).
+Single file: `./.kekkai.yaml` at the workspace root — the only recognized name. A `.kekkai.yml` entry of any kind (file, directory, symlink) is rejected as a typo with a rename instruction and non-zero exit, never silently ignored: falling back to defaults would drop the user's restrictions. The same check makes `init` refuse. A non-regular `.kekkai.yaml` (directory, dangling symlink) is likewise an error — the read-only bind (§5.2) needs a regular file. Exact rejection strings in `specs/012-readonly-config-mount/contracts/config-mount.md`. **Optional** — `up` without a config file runs on all defaults after exactly one stderr line, before any other output: `warning: no .kekkai.yaml found, using defaults - run 'kekkai init' to customize` (yellow only when stderr is a terminal and `NO_COLOR` is unset; exit status unaffected). A present but empty or comments-only file also means all defaults, silently — presence is the opt-in, emptiness means defaults. There are no merged yaml layers and no user-global config; all defaults are code-level constants (§5).
 
 Strict parsing (`yaml.v3`, `KnownFields(true)`). Known keys from earlier schemas (`image.base`, `image.base_image`, `image.claude_code_version`, `firewall`, `docker_access`, top-level `mounts`) produce a targeted error: schema changed, run `kekkai init`, see README.
 
@@ -124,6 +124,8 @@ limits:                          # optional; unlimited when omitted
 
 ### 4.5 `kekkai init`
 
+Refuses while a `.kekkai.yml` typo entry exists (§4.1) — writing a fresh `.kekkai.yaml` next to it would leave two config-looking files with only one ever read — and while `.kekkai.yaml` already exists (never overwrites).
+
 Writes a fully commented starter: every line is a comment or blank, so the fresh file parses as an empty document and runs on pure defaults (§4.1). Each setting appears commented out at its default value with README-grade explanatory comments; uncommenting is the single gesture to change it. The header states the file is optional and that the values shown are the defaults. Includes the commented `GH_TOKEN: ${GH_TOKEN}` env example next to `allow_github` — env passthrough is the supported gh auth path (host keyring tokens don't carry into containers; `gh` reads `GH_TOKEN` before `~/.config/gh/hosts.yml`).
 
 Copy/paste safety: commented example values in the starter (and README example) must equal the defaults — uncommenting without editing reproduces default behavior. Behavior-changing options (e.g. `--model` in `claude.args`) appear only in comments.
@@ -141,6 +143,7 @@ Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsut
 ### 5.2 Mounts
 
 - `$PWD` → `/workspace` (rw) — the only writable host bind besides `~/.claude`.
+- `$PWD/.kekkai.yaml` → `/workspace/.kekkai.yaml` (ro) — layered over the rw workspace bind so the agent can read the active policy but never rewrite the file that governs its own sandbox (no `SYS_ADMIN` → no remount; writes/renames/deletes fail). Without a config file, a comment-only placeholder (constant in `internal/runtime/up.go`, semantics = all defaults per §4.1) is staged under the user cache dir — not `$TMPDIR`, which macOS runtimes don't all share into the VM — and bound ro at the same path. Docker materializes the mountpoint as an empty file in the workspace; `up` removes that remnant at exit (only if still an empty regular file, so a config written mid-run survives). Later mounts win: `secrets.hide: [.kekkai.yaml]` still shadows it (§7.3 order).
 - `~/.claude` → `/home/kekkai/.claude` (rw) — sessions/skills/hooks carry over. Always on, not configurable.
 - History volume `kekkai-history-<sha256($PWD)[:8]>` → `/commandhistory`.
 - When `git.enabled: true`: `~/.gitconfig` → ro; agent commits carry the user's identity.

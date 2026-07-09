@@ -94,10 +94,13 @@ func Init() error {
 	if err != nil {
 		return err
 	}
-	for _, name := range []string{".kekkai.yml", ".kekkai.yaml"} {
-		if _, err := os.Stat(filepath.Join(pwd, name)); err == nil {
-			return fmt.Errorf("%s already exists, not overwriting", name)
-		}
+	// Typo check first: writing a fresh .kekkai.yaml next to a .kekkai.yml
+	// would leave two config-looking files with only one ever read (specs/012).
+	if _, err := os.Lstat(filepath.Join(pwd, ".kekkai.yml")); err == nil {
+		return fmt.Errorf("found .kekkai.yml - kekkai only reads .kekkai.yaml; rename it before running 'kekkai init'")
+	}
+	if _, err := os.Stat(filepath.Join(pwd, ".kekkai.yaml")); err == nil {
+		return fmt.Errorf(".kekkai.yaml already exists, not overwriting")
 	}
 	path := filepath.Join(pwd, ".kekkai.yaml")
 	if err := os.WriteFile(path, []byte(starterConfig), 0o644); err != nil {

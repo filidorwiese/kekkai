@@ -115,10 +115,13 @@ func Up(opts UpOptions) (int, error) {
 		return 1, err
 	}
 
-	args, err := buildRunArgs(cfg, pwd, imageTag, claudeVersion, opts)
+	args, cleanup, err := buildRunArgs(cfg, pwd, imageTag, claudeVersion, opts)
 	if err != nil {
 		return 1, err
 	}
+	// Removes the staged config placeholder (if any) once the container exits;
+	// Interactive waits, so the bind source lives exactly as long as the sandbox.
+	defer cleanup()
 
 	select {
 	case msg := <-noticeCh:
@@ -299,10 +302,13 @@ func buildImage(tag, renderedDockerfile, configHash string, verbose bool) error 
 // mounts → git mounts → disk.mounts → secrets shadows → builtin env → user
 // env → firewall env (authoritative) → CLAUDE_ARGS → limits → workdir.
 // claudeVersion gates the sandbox-context injection (§5.3); empty = unknown.
-func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts UpOptions) ([]string, error) {
+// The returned cleanup (never nil) releases the staged config placeholder and
+// must run after the container exits.
+func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts UpOptions) ([]string, func(), error) {
+	cleanup := func() {}
 	home, err := os.UserHomeDir()
 	if err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
 
 	args := []string{"run", "--rm", "-it",
@@ -316,10 +322,36 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 
 	// Builtin mounts (§5.2)
 	args = append(args, "-v", pwd+":/workspace")
+	// Config visibility (§5.2, specs/012): the config — or a comment-only
+	// placeholder when absent — is bound read-only over the rw workspace bind,
+	// so the agent can read the active policy but never rewrite the file that
+	// governs its own sandbox (no SYS_ADMIN → no remount, same enforcement as
+	// the .git ro bind). Load already rejected non-regular entries.
+	configPath := filepath.Join(pwd, ".kekkai.yaml")
+	if info, err := os.Stat(configPath); err == nil && info.Mode().IsRegular() {
+		args = append(args, "-v", configPath+":/workspace/.kekkai.yaml:ro")
+	} else {
+		placeholder, release, err := writeConfigPlaceholder()
+		if err != nil {
+			return nil, cleanup, err
+		}
+		// Docker materializes the mountpoint as an empty file inside the
+		// workspace bind, i.e. on the host. Remove that remnant at exit —
+		// but only an empty regular file, so a real config the user writes
+		// while the sandbox runs is never touched (specs/012).
+		cleanup = func() {
+			release()
+			if info, err := os.Stat(configPath); err == nil &&
+				info.Mode().IsRegular() && info.Size() == 0 {
+				os.Remove(configPath)
+			}
+		}
+		args = append(args, "-v", placeholder+":/workspace/.kekkai.yaml:ro")
+	}
 	claudeDir := filepath.Join(home, ".claude")
 	// Pre-create so docker does not create it root-owned on first run.
 	if err := os.MkdirAll(claudeDir, 0o700); err != nil {
-		return nil, err
+		return nil, cleanup, err
 	}
 	args = append(args, "-v", claudeDir+":/home/kekkai/.claude")
 	args = append(args, "-v", HistoryVolume(pwd)+":/commandhistory")
@@ -452,5 +484,37 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 	}
 
 	args = append(args, "-w", "/workspace", imageTag)
-	return args, nil
+	return args, cleanup, nil
+}
+
+// configPlaceholder is the in-container stand-in for a missing .kekkai.yaml.
+// Comments-only means all defaults (§4.1), so the agent reading it sees
+// exactly the active configuration. Exact text is contract-pinned
+// (specs/012-readonly-config-mount/contracts/config-mount.md).
+const configPlaceholder = "# no .kekkai.yaml in workspace - kekkai runs on defaults; create one on the host ('kekkai init') to customize\n"
+
+// writeConfigPlaceholder stages the placeholder outside the workspace and
+// returns its path plus a release func. It lives under the user cache dir,
+// not os.TempDir: a bind source must be visible to the docker daemon, and on
+// macOS only the home directory is shared into the runtime VM by every
+// recognized runtime (colima does not share $TMPDIR).
+func writeConfigPlaceholder() (string, func(), error) {
+	cacheDir, err := os.UserCacheDir()
+	if err != nil {
+		return "", nil, err
+	}
+	base := filepath.Join(cacheDir, "kekkai")
+	if err := os.MkdirAll(base, 0o755); err != nil {
+		return "", nil, err
+	}
+	dir, err := os.MkdirTemp(base, "config-")
+	if err != nil {
+		return "", nil, err
+	}
+	path := filepath.Join(dir, ".kekkai.yaml")
+	if err := os.WriteFile(path, []byte(configPlaceholder), 0o444); err != nil {
+		os.RemoveAll(dir)
+		return "", nil, err
+	}
+	return path, func() { os.RemoveAll(dir) }, nil
 }
