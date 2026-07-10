@@ -34,7 +34,9 @@ Your Claude setup carries over into the sandbox: skills, hooks, sessions - every
 
 ## Demo video
 
-https://github.com/user-attachments/assets/f782a51f-06d0-4f0a-b202-c9e5ccf2262a
+
+https://github.com/user-attachments/assets/0dc8b011-edb9-4b54-a69b-e1b59ad8f183
+
 
 ## Install
 
