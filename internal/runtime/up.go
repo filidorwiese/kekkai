@@ -166,7 +166,8 @@ func warnNoConfig() {
 // which gates the sandbox-context injection (§5.3).
 func ensureImage(cfg *config.Config, verbose bool) (string, string, error) {
 	aptPackages := append(append([]string{}, builtinAptPackages...), cfg.Image.AptPackages...)
-	configHash := ConfigHash(cfg.Image.NodeVersion, aptPackages, assets.FirewallScript)
+	uid, gid := sandboxIdentity()
+	configHash := ConfigHash(cfg.Image.NodeVersion, aptPackages, assets.FirewallScript, uid, gid)
 
 	version := cfg.Claude.Version
 	if version == "latest" {
@@ -182,7 +183,7 @@ func ensureImage(cfg *config.Config, verbose bool) (string, string, error) {
 		version = resolved
 	}
 
-	rendered, err := renderDockerfile(cfg.Image, aptPackages, version)
+	rendered, err := renderDockerfile(cfg.Image, aptPackages, version, uid, gid)
 	if err != nil {
 		return "", "", err
 	}
@@ -273,7 +274,7 @@ func newestImageForConfig(configHash string) (string, bool) {
 	return "", false
 }
 
-func renderDockerfile(img config.ImageConfig, aptPackages []string, claudeVersion string) (string, error) {
+func renderDockerfile(img config.ImageConfig, aptPackages []string, claudeVersion string, uid, gid int) (string, error) {
 	tmpl, err := template.New("Dockerfile").Parse(assets.DockerfileTmpl)
 	if err != nil {
 		return "", err
@@ -285,8 +286,10 @@ func renderDockerfile(img config.ImageConfig, aptPackages []string, claudeVersio
 		NodeInstallArg string
 		AptPackages    []string
 		ClaudeVersion  string
+		Uid            int
+		Gid            int
 	}{config.DebianBaseImage, config.NvmVersion, img.NodeInstallArg(),
-		aptPackages, claudeVersion})
+		aptPackages, claudeVersion, uid, gid})
 	return out.String(), err
 }
 

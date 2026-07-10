@@ -15,19 +15,21 @@ RUN export DEBIAN_FRONTEND=noninteractive \
  && apt-get install -y --no-install-recommends{{range .AptPackages}} {{.}}{{end}} \
  && rm -rf /var/lib/apt/lists/*
 
-# Non-root sandbox user (§6.3): UID/GID 1000 — the same numeric identity the
-# old node-image user had, so workspace files stay owned by the host user.
-RUN groupadd -g 1000 kekkai \
- && useradd -m -u 1000 -g kekkai -s /bin/bash kekkai
+# Non-root sandbox user (§6.3): baked with the host's uid/gid (specs/018) so
+# workspace files stay owned by the host user AND group. Host-side gate
+# guarantees ids >= 1000; the getent guard reuses a pre-existing group with
+# that gid instead of failing the build.
+RUN (getent group {{.Gid}} >/dev/null || groupadd -g {{.Gid}} kekkai) \
+ && useradd -m -u {{.Uid}} -g {{.Gid}} -s /bin/bash kekkai
 
 # bash history persists in the /commandhistory volume (§6.3). PROMPT_COMMAND
 # appends per command, so a killed session loses at most the in-flight line.
 RUN mkdir -p /commandhistory /workspace /home/kekkai/.claude \
  && touch /commandhistory/.bash_history \
- && chown -R kekkai:kekkai /commandhistory /workspace /home/kekkai \
+ && chown -R {{.Uid}}:{{.Gid}} /commandhistory /workspace /home/kekkai \
  && printf 'export HISTFILE=/commandhistory/.bash_history\nexport HISTSIZE=10000\nexport HISTFILESIZE=10000\nexport PROMPT_COMMAND='"'"'history -a'"'"'\n' \
       >> /home/kekkai/.bashrc \
- && chown kekkai:kekkai /home/kekkai/.bashrc
+ && chown {{.Uid}}:{{.Gid}} /home/kekkai/.bashrc
 
 # Node via nvm at image build time (§6.3): pinned nvm release tag, version
 # selector from image.node_version. Everything installs as the kekkai user
