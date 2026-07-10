@@ -128,7 +128,7 @@ func Up(opts UpOptions) (int, error) {
 	select {
 	case msg := <-noticeCh:
 		if msg != "" {
-			fmt.Println(yellow(os.Stdout, msg))
+			fmt.Println(Yellow(os.Stdout, msg))
 		}
 	default:
 		// Check not finished — silent this run, goroutine abandoned.
@@ -136,10 +136,11 @@ func Up(opts UpOptions) (int, error) {
 	return docker.Interactive(args...)
 }
 
-// yellow wraps msg in the advisory yellow only when f is a terminal and
-// NO_COLOR is unset (https://no-color.org). Both advisory lines (missing
-// config, update notice) go through here so the convention cannot diverge.
-func yellow(f *os.File, msg string) string {
+// Yellow wraps msg in the advisory yellow only when f is a terminal and
+// NO_COLOR is unset (https://no-color.org). Every advisory line (missing
+// config, update notices, sandbox-context warning) goes through here so
+// the convention cannot diverge.
+func Yellow(f *os.File, msg string) string {
 	if info, err := f.Stat(); err == nil &&
 		info.Mode()&os.ModeCharDevice != 0 && os.Getenv("NO_COLOR") == "" {
 		return "\033[33m" + msg + "\033[0m"
@@ -149,7 +150,7 @@ func yellow(f *os.File, msg string) string {
 
 // warnNoConfig prints the missing-config advisory (contract): one stderr line.
 func warnNoConfig() {
-	fmt.Fprintln(os.Stderr, yellow(os.Stderr,
+	fmt.Fprintln(os.Stderr, Yellow(os.Stderr,
 		"warning: no .kekkai.yaml found, using defaults - run 'kekkai init' to customize"))
 }
 
@@ -405,7 +406,7 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 		if v == "" {
 			v = "version unknown"
 		}
-		fmt.Fprintln(os.Stderr, yellow(os.Stderr, fmt.Sprintf(
+		fmt.Fprintln(os.Stderr, Yellow(os.Stderr, fmt.Sprintf(
 			"warning: claude %s does not support sandbox context injection (needs >= %s), starting without it",
 			v, appendPromptMinVersion)))
 	}

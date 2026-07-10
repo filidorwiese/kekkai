@@ -79,7 +79,13 @@ func dispatch(args []string) int {
 			err = selfupdate.Run(version)
 		}
 	case "version":
+		// Version first on stdout ($(kekkai version) stays exact); the
+		// courtesy update check then runs synchronously — advisory on
+		// stderr, silent on dev builds and every lookup failure (§3).
 		fmt.Println(version)
+		if notice := selfupdate.Notice(version); notice != "" {
+			fmt.Fprintln(os.Stderr, runtime.Yellow(os.Stderr, notice))
+		}
 	case "help", "-h", "--help":
 		fmt.Print(usage)
 	default:
