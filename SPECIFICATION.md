@@ -32,7 +32,7 @@ Protects against a misbehaving agent: prompt injection, malicious dependencies, 
 kekkai init        # write starter .kekkai.yaml
 kekkai up          # build image if needed, start sandbox, exec claude
 kekkai down        # stop + remove the sandbox container for $PWD
-kekkai shell       # open zsh in the running sandbox for $PWD
+kekkai shell       # open bash in the running sandbox for $PWD
 kekkai exec        # run a command in the running sandbox for $PWD, exit code passed through
 kekkai traffic     # stream egress traffic of the running sandbox for $PWD, labeled ALLOW/BLOCK
 kekkai ps          # list running kekkai containers
@@ -138,7 +138,7 @@ Copy/paste safety: commented example values in the starter (and README example) 
 
 Baked into the Dockerfile template, user `apt_packages` appends only.
 
-Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsutils`, `curl`, `ca-certificates`, `jq`, `aggregate`, `bash` (nvm dependency; present in the Debian base, listed to pin it). Required — subcommands: `zsh` (`kekkai shell`), `tcpdump` (`kekkai traffic`: the NFLOG reader). Convenience: `git`, `gh`, `less`, `nano`, `procps`.
+Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsutils`, `curl`, `ca-certificates`, `jq`, `aggregate`, `bash` (nvm dependency and the `kekkai shell` target; present in the Debian base, listed to pin it). Required — subcommands: `tcpdump` (`kekkai traffic`: the NFLOG reader). Convenience: `git`, `gh`, `less`, `nano`, `procps`.
 
 `jq`/`aggregate` only exercised on the `allow_github` path but stay baked: the image must be identical regardless of runtime config.
 
@@ -154,7 +154,7 @@ Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsut
 
 ### 5.3 Env
 
-`CLAUDE_CONFIG_DIR=/home/kekkai/.claude`, `NODE_OPTIONS=--max-old-space-size=4096`, `POWERLEVEL9K_DISABLE_GITSTATUS=true`, `WORKSPACE=<basename $PWD>`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` (no telemetry, error reporting, or auto-update traffic from the sandbox; the baked-in claude version is the update path; a user `env` entry overrides it), `KEKKAI_SANDBOX=1` (machine-readable sandbox marker). User env applied after builtin env (docker last-value-wins) and before firewall env so firewall vars stay authoritative.
+`CLAUDE_CONFIG_DIR=/home/kekkai/.claude`, `NODE_OPTIONS=--max-old-space-size=4096`, `WORKSPACE=<basename $PWD>`, `CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` (no telemetry, error reporting, or auto-update traffic from the sandbox; the baked-in claude version is the update path; a user `env` entry overrides it), `KEKKAI_SANDBOX=1` (machine-readable sandbox marker). User env applied after builtin env (docker last-value-wins) and before firewall env so firewall vars stay authoritative.
 
 Sandbox awareness: `KEKKAI_SYSTEM_PROMPT` carries a pinned advisory prompt (constant in `internal/runtime/sandboxprompt.go`, plus a ≤10-line summary of allowed domains/CIDRs and shadowed files) that the CMD appends to Claude's system prompt via `--append-system-prompt` (§6.3) — never a replacing flag, never written to the workspace or `~/.claude`. Set only when the resolved claude version supports the flag interactively (>= 1.0.51); older or unknown (registry-fallback, §6.2) versions get one yellow warning and start without it — injection must never break startup. Exact strings in `specs/011-sandbox-awareness/contracts/sandbox-prompt.md`.
 
@@ -180,11 +180,11 @@ At `up`, "latest" is resolved to the concrete current version via the npm regist
 
 ### 6.3 Dockerfile contract
 
-- Base `debian:trixie` (code constant); user `kekkai` created with UID/GID 1000 (the numeric identity the old node-image user had — workspace files stay host-owned), home `/home/kekkai`, shell zsh.
+- Base `debian:trixie` (code constant); user `kekkai` created with UID/GID 1000 (the numeric identity the old node-image user had — workspace files stay host-owned), home `/home/kekkai`, shell bash (the only general-purpose shell in the image).
 - Node via nvm as the `kekkai` user into `/home/kekkai/.nvm` — never as root, so runtime `npm install -g` needs no sudo and no root-owned files land in the home. No `NPM_CONFIG_PREFIX` (nvm refuses to operate with an npm prefix set); npm globals live in the nvm version dir. Build steps invoke nvm via `BASH_ENV` sourcing `nvm.sh` (the installer's non-interactive pattern).
 - Exec-path guarantee: stable symlink `/home/kekkai/.nvm/current` → the resolved version dir; root-created symlinks `/usr/local/bin/{node,npm,npx,claude}` → `current/bin/`; `ENV PATH` prepends `current/bin` (also covers binaries added later by runtime `npm install -g`, and outranks a Debian `nodejs` from user `apt_packages`). `node`/`npm`/`npx`/`claude` work from every exec path — `docker exec`, `sh -c`, subprocesses — without profile sourcing.
 - claude installed via `npm install -g @anthropic-ai/claude-code@<resolved claude.version>` as `kekkai`.
-- zsh history wired to `/commandhistory/.zsh_history`.
+- bash history wired to `/commandhistory/.bash_history`, appended per command (`PROMPT_COMMAND='history -a'`) so a killed session keeps everything up to the in-flight line.
 - `init-firewall.sh` copied to `/usr/local/bin/`; the **only** sudoers grant: `kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh`, plus an `env_keep` Defaults line scoped to that command whitelisting exactly the four §9 input vars (sudo's env_reset would otherwise strip them; SETENV rejected — it would let arbitrary env through). No other sudo without strong reason.
 - No docker CLI.
 - CMD: first a startup line `kekkai sandbox: node <x.y.z>, claude <version>` (node version read live — only the image knows what nvm resolved; claude version rendered at build, so the line is correct even on the §6.2 fallback image), then firewall init, then `exec claude $CLAUDE_ARGS`, appending `--append-system-prompt "$KEKKAI_SYSTEM_PROMPT"` only when that var is non-empty (§5.3). The prompt var is expanded quoted (multiline text intact); `$CLAUDE_ARGS` stays unquoted by design (flag string). Empty var → command line identical to the pre-011 form.

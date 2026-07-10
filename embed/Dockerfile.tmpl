@@ -18,15 +18,16 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 # Non-root sandbox user (§6.3): UID/GID 1000 — the same numeric identity the
 # old node-image user had, so workspace files stay owned by the host user.
 RUN groupadd -g 1000 kekkai \
- && useradd -m -u 1000 -g kekkai -s /bin/zsh kekkai
+ && useradd -m -u 1000 -g kekkai -s /bin/bash kekkai
 
-# zsh history persists in the /commandhistory volume (§6.3)
+# bash history persists in the /commandhistory volume (§6.3). PROMPT_COMMAND
+# appends per command, so a killed session loses at most the in-flight line.
 RUN mkdir -p /commandhistory /workspace /home/kekkai/.claude \
- && touch /commandhistory/.zsh_history \
+ && touch /commandhistory/.bash_history \
  && chown -R kekkai:kekkai /commandhistory /workspace /home/kekkai \
- && printf 'export HISTFILE=/commandhistory/.zsh_history\nexport HISTSIZE=10000\nexport SAVEHIST=10000\nsetopt INC_APPEND_HISTORY\n' \
-      >> /home/kekkai/.zshrc \
- && chown kekkai:kekkai /home/kekkai/.zshrc
+ && printf 'export HISTFILE=/commandhistory/.bash_history\nexport HISTSIZE=10000\nexport HISTFILESIZE=10000\nexport PROMPT_COMMAND='"'"'history -a'"'"'\n' \
+      >> /home/kekkai/.bashrc \
+ && chown kekkai:kekkai /home/kekkai/.bashrc
 
 # Node via nvm at image build time (§6.3): pinned nvm release tag, version
 # selector from image.node_version. Everything installs as the kekkai user
@@ -87,7 +88,7 @@ RUN chmod 0755 /usr/local/bin/init-firewall.sh \
 
 USER kekkai
 WORKDIR /workspace
-ENV SHELL=/bin/zsh
+ENV SHELL=/bin/bash
 
 # Startup line first: the concrete Node version is only known in-image (nvm
 # resolved the selector at build), and the claude version was rendered at

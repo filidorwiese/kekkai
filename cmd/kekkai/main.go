@@ -25,7 +25,7 @@ Commands:
                      --verbose (plain buildkit progress)
               args after -- are appended to claude args
   down        stop + remove the sandbox container for $PWD
-  shell       open zsh in the running sandbox for $PWD
+  shell       open bash in the running sandbox for $PWD
   exec        run a command in the running sandbox for $PWD
               args are passed verbatim; exits with the command's exit code
   traffic     stream egress traffic of the running sandbox for $PWD

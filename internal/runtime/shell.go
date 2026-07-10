@@ -7,7 +7,7 @@ import (
 	"kekkai/internal/docker"
 )
 
-// Shell opens zsh in the running sandbox for $PWD, resolved by label.
+// Shell opens bash in the running sandbox for $PWD, resolved by label.
 func Shell() (int, error) {
 	pwd, err := os.Getwd()
 	if err != nil {
@@ -19,7 +19,7 @@ func Shell() (int, error) {
 	}
 	for _, c := range containers {
 		if c.Running {
-			return docker.Interactive("exec", "-it", c.ID, "zsh")
+			return docker.Interactive("exec", "-it", c.ID, "bash")
 		}
 	}
 	return 1, fmt.Errorf("no running sandbox for %s, run 'kekkai up'", pwd)

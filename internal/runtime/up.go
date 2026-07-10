@@ -27,10 +27,9 @@ var builtinAptPackages = []string{
 	// firewall/lifecycle
 	"sudo", "iptables", "ipset", "iproute2", "dnsutils",
 	"curl", "ca-certificates", "jq", "aggregate",
-	// nvm needs bash (present in debian:trixie; listed to pin the dependency)
+	// nvm dependency + kekkai shell (present in debian:trixie; listed to pin it)
 	"bash",
 	// subcommands
-	"zsh",     // kekkai shell
 	"tcpdump", // kekkai traffic (nflog reader)
 	// convenience
 	"git", "gh", "less", "nano", "procps",
@@ -392,7 +391,6 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 	addEnv := func(k, v string) { args = append(args, "-e", k+"="+v) }
 	addEnv("CLAUDE_CONFIG_DIR", "/home/kekkai/.claude")
 	addEnv("NODE_OPTIONS", "--max-old-space-size=4096")
-	addEnv("POWERLEVEL9K_DISABLE_GITSTATUS", "true")
 	addEnv("WORKSPACE", filepath.Base(pwd))
 	// No telemetry/error-reporting/auto-update traffic (§5.3); the in-image
 	// claude version is the update path. User env below can override.
