@@ -24,7 +24,9 @@ jobs:
 
       - uses: actions/setup-go@v6
         with:
-          go-version: "1.24"
+          # go.mod is the single toolchain source of truth - never pin a
+          # second version here (specs/015, contracts/ci-toolchain.md)
+          go-version-file: go.mod
 
       - name: Build
         env:
