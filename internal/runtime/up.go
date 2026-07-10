@@ -37,6 +37,11 @@ var builtinAptPackages = []string{
 
 const npmLatestURL = "https://registry.npmjs.org/@anthropic-ai/claude-code/latest"
 
+// nodeIndexURL is nvm's source of truth: the same dataset (index.tab/json in
+// the same dist directory) that `nvm install` resolves versions against, so
+// the pre-build check can never disagree with what the build would do.
+const nodeIndexURL = "https://nodejs.org/dist/index.json"
+
 // darwinAgentSocket is where macOS runtimes (Docker Desktop, OrbStack,
 // colima --ssh-agent) forward the host SSH agent inside their VM (§5.2).
 const darwinAgentSocket = "/run/host-services/ssh-auth.sock"
@@ -183,15 +188,54 @@ func ensureImage(cfg *config.Config, verbose bool) (string, string, error) {
 	}
 	tag := ImageTag(rendered, assets.FirewallScript)
 	if !docker.ImageExists(tag) {
-		// A well-formed but nonexistent node_version cannot be pre-checked
-		// (nvm resolves it during the build); the nvm install step fails with
-		// a message naming image.node_version (§6.1).
+		// Fail fast on a nonexistent node_version before the multi-minute
+		// build (§6.1). Best-effort only: runs solely on a build-triggering
+		// up (cached images never hit the network), and only a confirmed
+		// absence aborts — lts always exists by construction.
+		if cfg.Image.NodeVersion != config.DefaultNodeVersion && nodeVersionMissing(cfg.Image.NodeVersion) {
+			return "", "", fmt.Errorf(
+				"image.node_version: %q matches no published Node version — see https://nodejs.org/dist/ for available versions",
+				cfg.Image.NodeVersion)
+		}
 		fmt.Printf("building image %s (claude %s)\n", tag, version)
 		if err := buildImage(tag, rendered, configHash, verbose); err != nil {
 			return "", "", err
 		}
 	}
 	return tag, version, nil
+}
+
+// nodeVersionMissing reports whether the Node release index CONFIRMS the
+// selector matches no published version. Matching mirrors nvm's remote
+// resolution: full pins match exactly, major/major.minor match any release
+// under them. Any other outcome — timeout, transport error, non-200,
+// malformed data — is inconclusive and returns false so a degraded network
+// never blocks a build (same tri-state semantics as the retired node:*
+// Docker Hub probe); nvm's own error remains the in-build fallback.
+func nodeVersionMissing(selector string) bool {
+	client := &http.Client{Timeout: 10 * time.Second}
+	resp, err := client.Get(nodeIndexURL)
+	if err != nil {
+		return false
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return false
+	}
+	var releases []struct {
+		Version string `json:"version"`
+	}
+	if json.NewDecoder(resp.Body).Decode(&releases) != nil || len(releases) == 0 {
+		return false
+	}
+	exact := "v" + selector
+	prefix := exact + "."
+	for _, r := range releases {
+		if r.Version == exact || strings.HasPrefix(r.Version, prefix) {
+			return false
+		}
+	}
+	return true
 }
 
 func resolveLatest() (string, error) {
@@ -239,11 +283,10 @@ func renderDockerfile(img config.ImageConfig, aptPackages []string, claudeVersio
 		DebianImage    string
 		NvmVersion     string
 		NodeInstallArg string
-		NodeVersionRaw string
 		AptPackages    []string
 		ClaudeVersion  string
 	}{config.DebianBaseImage, config.NvmVersion, img.NodeInstallArg(),
-		img.NodeVersion, aptPackages, claudeVersion})
+		aptPackages, claudeVersion})
 	return out.String(), err
 }
 

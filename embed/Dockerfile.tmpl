@@ -56,8 +56,10 @@ RUN curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/{{.NvmVersion}}/inst
 # build time and never retroactively (§6.1 — the selector string, not the
 # resolved version, is what enters the image hash). The `current` symlink
 # gives version-independent paths for the /usr/local/bin links and PATH.
+# Nonexistent versions are normally caught by the host-side pre-build check
+# (specs/017); when that check was inconclusive (degraded network), nvm's
+# native "Version not found" error surfaces here.
 RUN nvm install {{.NodeInstallArg}} \
-      || { echo "ERROR: Node version {{.NodeVersionRaw}} not found - check image.node_version in .kekkai.yaml" >&2; exit 1; } \
  && nvm alias default "$(nvm current)" \
  && ln -s "$NVM_DIR/versions/node/$(nvm current)" "$NVM_DIR/current"
 
