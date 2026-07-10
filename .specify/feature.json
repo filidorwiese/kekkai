@@ -1,1 +1,3 @@
-{"feature_directory":"specs/014-debian-nvm-base"}
+{
+  "feature_directory": "specs/015-remove-zsh"
+}
