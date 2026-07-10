@@ -40,7 +40,7 @@ https://github.com/user-attachments/assets/0dc8b011-edb9-4b54-a69b-e1b59ad8f183
 
 ## Install
 
-Kekkai ships as a single static binary, installed to `~/.local/bin`.
+Kekkai ships as a single static binary, installed to `~/.local/bin` (size: ~3MB).
 
 **Prerequisites:** Linux x86_64/aarch64, or macOS on Apple silicon. Docker and curl.
 
