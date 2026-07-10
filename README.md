@@ -42,7 +42,7 @@ https://github.com/user-attachments/assets/0dc8b011-edb9-4b54-a69b-e1b59ad8f183
 
 Kekkai ships as a single static binary, installed to `~/.local/bin`.
 
-**Prerequisites:** Linux x86_64/aarch64, or macOS on Apple silicon. Docker, git, curl.
+**Prerequisites:** Linux x86_64/aarch64, or macOS on Apple silicon. Docker and curl.
 
 Quick install:
 
