@@ -31,6 +31,9 @@ var builtinAptPackages = []string{
 	"bash",
 	// subcommands
 	"tcpdump", // kekkai traffic (nflog reader)
+	// git over ssh: signing (ssh-keygen -Y) + git@ remotes via the
+	// forwarded agent (§5.2); baked unconditionally per §6.1
+	"openssh-client",
 	// convenience
 	"git", "gh", "less", "nano", "procps",
 }

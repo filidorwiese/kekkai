@@ -139,9 +139,9 @@ Copy/paste safety: commented example values in the starter (and README example) 
 
 Baked into the Dockerfile template, user `apt_packages` appends only.
 
-Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsutils`, `curl`, `ca-certificates`, `jq`, `aggregate`, `bash` (nvm dependency and the `kekkai shell` target; present in the Debian base, listed to pin it). Required — subcommands: `tcpdump` (`kekkai traffic`: the NFLOG reader). Convenience: `git`, `gh`, `less`, `nano`, `procps`.
+Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsutils`, `curl`, `ca-certificates`, `jq`, `aggregate`, `bash` (nvm dependency and the `kekkai shell` target; present in the Debian base, listed to pin it). Required — subcommands: `tcpdump` (`kekkai traffic`: the NFLOG reader). Required — git over ssh: `openssh-client` (SSH commit signing via `ssh-keygen -Y` and `git@` remotes through the forwarded agent, §5.2). Convenience: `git`, `gh`, `less`, `nano`, `procps`.
 
-`jq`/`aggregate` only exercised on the `allow_github` path but stay baked: the image must be identical regardless of runtime config.
+`jq`/`aggregate` only exercised on the `allow_github` path, `openssh-client` only on the `ssh_agent` path, but all stay baked: the image must be identical regardless of runtime config.
 
 ### 5.2 Mounts
 
