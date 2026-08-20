@@ -353,7 +353,7 @@ func buildImage(tag, renderedDockerfile, configHash string, aptRepos []config.Ap
 		return err
 	}
 	labels := map[string]string{LabelConfigHash: configHash}
-	output, err := docker.BuildImage(tag, dir, labels, verbose)
+	output, err := docker.BuildImage(tag, dir, labels, verbose, len(aptRepos) > 0)
 	if err != nil {
 		// Never replaces the build error — one extra stderr line at most.
 		if hint := aptSignatureHint(aptRepos, output); hint != "" {
