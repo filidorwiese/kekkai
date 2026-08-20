@@ -83,7 +83,7 @@ image:
   # Node.js version, installed at image build time: "lts" (default) or a
   # version number like "22", "22.11" or "22.11.0".
   node_version: lts
-  apt_packages: [golang]
+  apt_packages: [golang, dart]
 
   # Custom apt repositories, registered before apt_packages install so
   # packages can come from them. name keys the sources/keyring filenames;

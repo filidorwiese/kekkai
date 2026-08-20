@@ -19,7 +19,7 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #   node_version: lts
 #
 #   # Extra apt packages baked into the image, appended to kekkai's builtin set.
-#   apt_packages: [golang]
+#   apt_packages: [golang, dart]
 #
 #   # Custom apt repositories, registered before packages install so
 #   # apt_packages can come from them. suite ending "/" = flat repo (omit
