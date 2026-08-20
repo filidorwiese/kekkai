@@ -79,12 +79,14 @@ RUN npm install -g @anthropic-ai/claude-code@{{.ClaudeVersion}}
 # subprocesses — without profile sourcing (§6.3): stable symlinks in
 # /usr/local/bin plus PATH onto the live nvm bin dir (the PATH entry also
 # covers binaries added later by runtime `npm install -g`, and outranks any
-# Debian nodejs from user apt_packages).
+# Debian nodejs from user apt_packages). fd rides along: Debian renames the
+# binary to fdfind, agents type the upstream name (specs/021).
 USER root
 RUN ln -s /home/kekkai/.nvm/current/bin/node /usr/local/bin/node \
  && ln -s /home/kekkai/.nvm/current/bin/npm /usr/local/bin/npm \
  && ln -s /home/kekkai/.nvm/current/bin/npx /usr/local/bin/npx \
- && ln -s /home/kekkai/.nvm/current/bin/claude /usr/local/bin/claude
+ && ln -s /home/kekkai/.nvm/current/bin/claude /usr/local/bin/claude \
+ && ln -s /usr/bin/fdfind /usr/local/bin/fd
 ENV PATH=/home/kekkai/.nvm/current/bin:$PATH
 
 # The ONLY sudoers grant: the firewall script (§6.3). No docker CLI in image.

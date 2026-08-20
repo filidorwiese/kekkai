@@ -36,6 +36,10 @@ var builtinAptPackages = []string{
 	"openssh-client",
 	// convenience
 	"git", "gh", "less", "nano", "procps",
+	// general tooling (specs/021): archives, file inspection, search, file
+	// transfer — near-universal agent operations, zero config required
+	"unzip", "zip", "xz-utils", "zstd", "bzip2",
+	"file", "ripgrep", "fd-find", "rsync",
 }
 
 const npmLatestURL = "https://registry.npmjs.org/@anthropic-ai/claude-code/latest"
