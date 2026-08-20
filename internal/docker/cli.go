@@ -4,6 +4,7 @@ package docker
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"sort"
@@ -53,8 +54,10 @@ func ImageExists(tag string) bool {
 }
 
 // BuildImage builds contextDir (containing Dockerfile) as tag.
-// verbose switches buildkit to plain progress.
-func BuildImage(tag, contextDir string, labels map[string]string, verbose bool) error {
+// verbose switches buildkit to plain progress. Output streams to the
+// terminal as before and is also returned, so the caller can diagnose a
+// failed build (apt signature hint, specs/020) without docker knowing apt.
+func BuildImage(tag, contextDir string, labels map[string]string, verbose bool) (string, error) {
 	args := []string{"build", "-t", tag}
 	for k, v := range labels {
 		args = append(args, "--label", k+"="+v)
@@ -64,12 +67,13 @@ func BuildImage(tag, contextDir string, labels map[string]string, verbose bool) 
 	}
 	args = append(args, contextDir)
 	cmd := exec.Command("docker", args...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	var captured strings.Builder
+	cmd.Stdout = io.MultiWriter(os.Stdout, &captured)
+	cmd.Stderr = io.MultiWriter(os.Stderr, &captured)
 	if err := cmd.Run(); err != nil {
-		return fmt.Errorf("docker build failed: %w", err)
+		return captured.String(), fmt.Errorf("docker build failed: %w", err)
 	}
-	return nil
+	return captured.String(), nil
 }
 
 // Container is one `docker ps` row scoped to kekkai labels.

@@ -20,6 +20,16 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #
 #   # Extra apt packages baked into the image, appended to kekkai's builtin set.
 #   apt_packages: [golang]
+#
+#   # Custom apt repositories, registered before packages install so
+#   # apt_packages can come from them. suite ending "/" = flat repo (omit
+#   # components). Omit key_url to rely on keys Debian already ships.
+#   apt_repos:
+#     - name: dart
+#       url: https://storage.googleapis.com/download.dartlang.org/linux/debian
+#       suite: stable
+#       components: main   # optional, defaults to main
+#       key_url: https://dl-ssl.google.com/linux/linux_signing_key.pub
 
 # claude:
 #   # "latest" (default) resolves the newest release at 'kekkai up', so a new

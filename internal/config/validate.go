@@ -23,7 +23,21 @@ var (
 	// lts/<codename>) are deliberately rejected: the value set is kekkai's
 	// contract, not nvm's.
 	nodeVersionPattern = regexp.MustCompile(`^(lts|[0-9]+(\.[0-9]+){0,2})$`)
+
+	// apt_repos grammars (specs/020 contracts/config-validation.md). Strict
+	// allowlists: every field lands inside the Dockerfile's RUN line, so
+	// whitespace, quotes, `$`, `[`, `]`, `=` and all other shell/apt
+	// metacharacters must be unrepresentable — apt options like trusted=yes
+	// are excluded structurally, not by pattern-matching for them.
+	aptRepoNamePattern   = regexp.MustCompile(`^[a-z0-9-]{1,64}$`)
+	aptRepoURLPattern    = regexp.MustCompile(`^https://[A-Za-z0-9._~%/+:-]+$`)
+	aptSuitePattern      = regexp.MustCompile(`^[A-Za-z0-9._+-]+$`)
+	aptFlatSuitePattern  = regexp.MustCompile(`^(\./|([A-Za-z0-9._+-]+/)+)$`)
+	aptComponentsPattern = regexp.MustCompile(`^[a-z0-9-]+$`)
 )
+
+// aptRepoReservedNames collide with the builtin GitHub CLI repo files.
+var aptRepoReservedNames = []string{"github-cli", "githubcli"}
 
 // Validate runs every semantic check from contracts/config.md and resolves
 // mount expansion/target inference (§4.3). All violations are collected so
@@ -40,6 +54,67 @@ func Validate(cfg *Config) []error {
 		fail("image.node_version must not be empty (omit the key for the default %q)", DefaultNodeVersion)
 	} else if !nodeVersionPattern.MatchString(cfg.Image.NodeVersion) {
 		fail("image.node_version must be \"lts\", a major (\"22\"), major.minor (\"22.11\"), or full version (\"22.11.0\"), got %q", cfg.Image.NodeVersion)
+	}
+
+	// image.apt_repos: allowlist grammar per field, duplicate + reserved
+	// names, flat-repo rules (specs/020 contracts/config-validation.md)
+	repoNames := map[string]int{}
+	for i, r := range cfg.Image.AptRepos {
+		label := fmt.Sprintf("image.apt_repos[%d]", i)
+		if aptRepoNamePattern.MatchString(r.Name) {
+			label = fmt.Sprintf("image.apt_repos[%d] (%s)", i, r.Name)
+		}
+
+		switch {
+		case r.Name == "":
+			fail("%s: name is required", label)
+		case !aptRepoNamePattern.MatchString(r.Name):
+			fail("%s: name %q must be 1-64 chars of [a-z0-9-]", label, r.Name)
+		case r.Name == aptRepoReservedNames[0] || r.Name == aptRepoReservedNames[1]:
+			fail("%s: name %q is reserved for the builtin GitHub CLI repository", label, r.Name)
+		default:
+			if prev, dup := repoNames[r.Name]; dup {
+				fail("%s: duplicate name %q (already used by image.apt_repos[%d])", label, r.Name, prev)
+			} else {
+				repoNames[r.Name] = i
+			}
+		}
+
+		switch {
+		case r.URL == "":
+			fail("%s: url is required", label)
+		case !strings.HasPrefix(r.URL, "https://"):
+			fail("%s: url must start with https://, got %q", label, r.URL)
+		case !aptRepoURLPattern.MatchString(r.URL):
+			fail("%s: url %q contains characters outside [A-Za-z0-9._~%%/+:-]", label, r.URL)
+		}
+
+		if r.KeyURL != "" {
+			switch {
+			case !strings.HasPrefix(r.KeyURL, "https://"):
+				fail("%s: key_url must start with https://, got %q", label, r.KeyURL)
+			case !aptRepoURLPattern.MatchString(r.KeyURL):
+				fail("%s: key_url %q contains characters outside [A-Za-z0-9._~%%/+:-]", label, r.KeyURL)
+			}
+		}
+
+		flat := strings.HasSuffix(r.Suite, "/")
+		switch {
+		case r.Suite == "":
+			fail("%s: suite is required", label)
+		case flat && (strings.Contains(r.Suite, "..") || !aptFlatSuitePattern.MatchString(r.Suite)):
+			fail("%s: flat suite %q must be \"./\" or slash-terminated segments of [A-Za-z0-9._+-] without \"..\"", label, r.Suite)
+		case !flat && !aptSuitePattern.MatchString(r.Suite):
+			fail("%s: suite %q must be chars of [A-Za-z0-9._+-] (end with \"/\" for a flat repository)", label, r.Suite)
+		}
+
+		if r.Components != "" {
+			if flat {
+				fail("%s: components must be omitted for flat repositories (suite ends with \"/\")", label)
+			} else if !aptComponentsPattern.MatchString(r.Components) {
+				fail("%s: components %q must be a single component of [a-z0-9-]", label, r.Components)
+			}
+		}
 	}
 
 	// claude.version: latest or exact npm version

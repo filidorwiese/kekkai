@@ -53,8 +53,20 @@ type Config struct {
 }
 
 type ImageConfig struct {
-	NodeVersion string   `yaml:"node_version"`
-	AptPackages []string `yaml:"apt_packages"`
+	NodeVersion string    `yaml:"node_version"`
+	AptPackages []string  `yaml:"apt_packages"`
+	AptRepos    []AptRepo `yaml:"apt_repos"`
+}
+
+// AptRepo is one custom apt repository entry (§4.2). Every field is
+// interpolated into the image build, so Validate's allowlist grammars are
+// the injection boundary — no field may hold shell or apt option syntax.
+type AptRepo struct {
+	Name       string `yaml:"name"`
+	URL        string `yaml:"url"`
+	Suite      string `yaml:"suite"`
+	Components string `yaml:"components"`
+	KeyURL     string `yaml:"key_url"`
 }
 
 // NodeInstallArg translates the validated node_version selector into the

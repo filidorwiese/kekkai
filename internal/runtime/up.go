@@ -170,7 +170,7 @@ func warnNoConfig() {
 func ensureImage(cfg *config.Config, verbose bool) (string, string, error) {
 	aptPackages := append(append([]string{}, builtinAptPackages...), cfg.Image.AptPackages...)
 	uid, gid := sandboxIdentity()
-	configHash := ConfigHash(cfg.Image.NodeVersion, aptPackages, assets.FirewallScript, uid, gid)
+	configHash := ConfigHash(cfg.Image.NodeVersion, aptPackages, cfg.Image.AptRepos, assets.FirewallScript, uid, gid)
 
 	version := cfg.Claude.Version
 	if version == "latest" {
@@ -202,7 +202,7 @@ func ensureImage(cfg *config.Config, verbose bool) (string, string, error) {
 				cfg.Image.NodeVersion)
 		}
 		fmt.Printf("building image %s (claude %s)\n", tag, version)
-		if err := buildImage(tag, rendered, configHash, verbose); err != nil {
+		if err := buildImage(tag, rendered, configHash, cfg.Image.AptRepos, verbose); err != nil {
 			return "", "", err
 		}
 	}
@@ -277,6 +277,45 @@ func newestImageForConfig(configHash string) (string, bool) {
 	return "", false
 }
 
+// aptRepoRender is the per-entry template data for the {{range .AptRepos}}
+// block: paths and option string are derived here so the template stays a
+// dumb interpolator (specs/020 contracts/image-render.md). The kekkai-
+// filename prefix guarantees no collision with the builtin github-cli files.
+type aptRepoRender struct {
+	URL         string
+	KeyURL      string
+	KeyringPath string // empty when KeyURL is unset
+	SourcesPath string
+	Options     string
+	SuiteLine   string
+}
+
+func aptRepoRenderData(repos []config.AptRepo) []aptRepoRender {
+	out := make([]aptRepoRender, 0, len(repos))
+	for _, r := range repos {
+		d := aptRepoRender{
+			URL:         r.URL,
+			KeyURL:      r.KeyURL,
+			SourcesPath: "/etc/apt/sources.list.d/kekkai-" + r.Name + ".list",
+			Options:     "arch=$(dpkg --print-architecture)",
+		}
+		if r.KeyURL != "" {
+			d.KeyringPath = "/etc/apt/keyrings/kekkai-" + r.Name + ".gpg"
+			d.Options += " signed-by=" + d.KeyringPath
+		}
+		if strings.HasSuffix(r.Suite, "/") {
+			// Flat repository: suite alone, no components token.
+			d.SuiteLine = r.Suite
+		} else if r.Components == "" {
+			d.SuiteLine = r.Suite + " main"
+		} else {
+			d.SuiteLine = r.Suite + " " + r.Components
+		}
+		out = append(out, d)
+	}
+	return out
+}
+
 func renderDockerfile(img config.ImageConfig, aptPackages []string, claudeVersion string, uid, gid int) (string, error) {
 	tmpl, err := template.New("Dockerfile").Parse(assets.DockerfileTmpl)
 	if err != nil {
@@ -288,15 +327,16 @@ func renderDockerfile(img config.ImageConfig, aptPackages []string, claudeVersio
 		NvmVersion     string
 		NodeInstallArg string
 		AptPackages    []string
+		AptRepos       []aptRepoRender
 		ClaudeVersion  string
 		Uid            int
 		Gid            int
 	}{config.DebianBaseImage, config.NvmVersion, img.NodeInstallArg(),
-		aptPackages, claudeVersion, uid, gid})
+		aptPackages, aptRepoRenderData(img.AptRepos), claudeVersion, uid, gid})
 	return out.String(), err
 }
 
-func buildImage(tag, renderedDockerfile, configHash string, verbose bool) error {
+func buildImage(tag, renderedDockerfile, configHash string, aptRepos []config.AptRepo, verbose bool) error {
 	dir, err := os.MkdirTemp("", "kekkai-build-")
 	if err != nil {
 		return err
@@ -309,7 +349,51 @@ func buildImage(tag, renderedDockerfile, configHash string, verbose bool) error 
 		return err
 	}
 	labels := map[string]string{LabelConfigHash: configHash}
-	return docker.BuildImage(tag, dir, labels, verbose)
+	output, err := docker.BuildImage(tag, dir, labels, verbose)
+	if err != nil {
+		// Never replaces the build error — one extra stderr line at most.
+		if hint := aptSignatureHint(aptRepos, output); hint != "" {
+			fmt.Fprintln(os.Stderr, hint)
+		}
+		return err
+	}
+	return nil
+}
+
+// aptSignatureMarkers are apt's release-file verification failures; any of
+// them in a failed build's output triggers the key_url hint (specs/020 R7).
+var aptSignatureMarkers = []string{"NO_PUBKEY", "is not signed", "EXPKEYSIG", "NODATA"}
+
+// aptSignatureHint attributes an apt signature failure to a configured repo
+// by URL (apt's error lines carry the source URL) and suggests the key_url
+// fix. Empty when apt_repos is unconfigured or no marker matched.
+func aptSignatureHint(repos []config.AptRepo, buildOutput string) string {
+	if len(repos) == 0 {
+		return ""
+	}
+	matched := false
+	for _, m := range aptSignatureMarkers {
+		if strings.Contains(buildOutput, m) {
+			matched = true
+			break
+		}
+	}
+	if !matched {
+		return ""
+	}
+	for i, r := range repos {
+		if strings.Contains(buildOutput, r.URL) {
+			if r.KeyURL != "" {
+				return fmt.Sprintf("hint: image.apt_repos[%d] (%s): apt could not verify this repository — key_url may point at the wrong key", i, r.Name)
+			}
+			return fmt.Sprintf("hint: image.apt_repos[%d] (%s): apt could not verify this repository — add key_url with the repository's signing key", i, r.Name)
+		}
+	}
+	names := make([]string, len(repos))
+	for i, r := range repos {
+		names[i] = r.Name
+	}
+	return fmt.Sprintf("hint: an apt repository failed signature verification — check key_url on image.apt_repos entries (%s)", strings.Join(names, ", "))
 }
 
 // buildRunArgs assembles `docker run` args in the §7.3 order: caps → builtin

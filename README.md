@@ -85,6 +85,18 @@ image:
   node_version: lts
   apt_packages: [golang]
 
+  # Custom apt repositories, registered before apt_packages install so
+  # packages can come from them. name keys the sources/keyring filenames;
+  # url and key_url must be https. suite ending "/" marks a flat repo
+  # (components must then be omitted); components defaults to "main".
+  # Omit key_url to rely on keys Debian already ships (e.g. backports).
+  apt_repos:
+    - name: dart
+      url: https://storage.googleapis.com/download.dartlang.org/linux/debian
+      suite: stable
+      components: main
+      key_url: https://dl-ssl.google.com/linux/linux_signing_key.pub
+
 claude:
   # Claude Code version: "latest" (default) or pin e.g. "2.0.14"
   # for reproducible agent behavior. "latest" tracks new releases -
