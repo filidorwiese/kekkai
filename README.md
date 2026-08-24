@@ -20,6 +20,8 @@ An autonomous AI agent with access to your entire disk, the full internet, and e
 
 Kekkai confines it. With a restrictive sandbox as the security boundary, Claude Code can safely run off the leash with `--dangerously-skip-permissions` - fully autonomous, no interruptions.
 
+The whole boundary is declarative and lives with the code. One yaml in the project root defines which volumes are mounted and whether they're readonly, which egress is allowed, and which secrets are shadowed with empty mounts. It's versioned with the repo, so the sandbox is reproducible, reviewable, and scoped to what that one project actually needs.
+
 ## What you get
 
 `kekkai up` spins up the latest Claude Code inside a Docker container locked to the current folder, designed so nothing escapes it.
