@@ -18,18 +18,18 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #   # version number like "22", "22.11" or "22.11.0"
 #   node_version: lts
 #
-#   # Extra apt packages baked into the image, appended to kekkai's builtin set.
-#   apt_packages: [golang, dart]
+#   # Extra apt packages baked into the image, appended to kekkai's builtin
+#   # set (python3 + pip come preinstalled), e.g. python libraries:
+#   apt_packages: [python3-requests, python3-numpy]
 #
-#   # Custom apt repositories, registered before packages install so
-#   # apt_packages can come from them. suite ending "/" = flat repo (omit
-#   # components). Omit key_url to rely on keys Debian already ships.
+#   # Custom apt repositories for apt_packages to install from.
+#   # urls must be https. Omit key_url when Debian already ships
+#   # the signing key (e.g. backports).
 #   apt_repos:
-#     - name: dart
-#       url: https://storage.googleapis.com/download.dartlang.org/linux/debian
-#       suite: stable
+#     - name: backports
+#       url: https://deb.debian.org/debian
+#       suite: trixie-backports
 #       components: main   # optional, defaults to main
-#       key_url: https://dl-ssl.google.com/linux/linux_signing_key.pub
 
 # claude:
 #   # "latest" (default) resolves the newest release at 'kekkai up', so a new
@@ -74,8 +74,11 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #   # GitHub git/api/ssh via the api.github.com/meta CIDR list:
 #   allow_github: true
 #
-#   # Extra domains, resolved to IPs once at sandbox start:
+#   # Allowed egress domains, resolved to IPs at sandbox startup.
+#   # Example: the python and npm package registries:
 #   allowed_domains:
+#     - pypi.org
+#     - files.pythonhosted.org
 #     - registry.npmjs.org
 #
 #   # Literal IP ranges, e.g. your LAN or a staging network:

@@ -83,19 +83,18 @@ image:
   # Node.js version, installed at image build time: "lts" (default) or a
   # version number like "22", "22.11" or "22.11.0".
   node_version: lts
-  apt_packages: [golang, dart]
+  # python3 + pip come preinstalled; apt_packages appends extras,
+  # e.g. python libraries from Debian:
+  apt_packages: [python3-requests, python3-numpy]
 
-  # Custom apt repositories, registered before apt_packages install so
-  # packages can come from them. name keys the sources/keyring filenames;
-  # url and key_url must be https. suite ending "/" marks a flat repo
-  # (components must then be omitted); components defaults to "main".
-  # Omit key_url to rely on keys Debian already ships (e.g. backports).
+  # Custom apt repositories for apt_packages to install from.
+  # urls must be https. Omit key_url when Debian already ships
+  # the signing key (e.g. backports).
   apt_repos:
-    - name: dart
-      url: https://storage.googleapis.com/download.dartlang.org/linux/debian
-      suite: stable
+    - name: backports
+      url: https://deb.debian.org/debian
+      suite: trixie-backports
       components: main
-      key_url: https://dl-ssl.google.com/linux/linux_signing_key.pub
 
 claude:
   # Claude Code version: "latest" (default) or pin e.g. "2.0.14"
@@ -153,11 +152,12 @@ network:
   allowed_cidrs:
     - 192.168.1.0/24
 
-  # Domains are resolved to IPs once, at sandbox startup
+  # Allowed egress domains, resolved to IPs at sandbox startup.
+  # Example: the python and npm package registries:
   allowed_domains:
+    - pypi.org
+    - files.pythonhosted.org
     - registry.npmjs.org
-    - proxy.golang.org
-    - sum.golang.org
 
 secrets:
   # Files or directories shadowed with empty mounts, paths relative

@@ -40,6 +40,9 @@ var builtinAptPackages = []string{
 	// transfer — near-universal agent operations, zero config required
 	"unzip", "zip", "xz-utils", "zstd", "bzip2",
 	"file", "ripgrep", "fd-find", "rsync",
+	// scripting runtime (specs/024): ad-hoc agent scripting; PyPI egress
+	// stays user opt-in via network.allowed_domains (§5.4 unchanged)
+	"python3", "python3-venv", "python3-pip",
 }
 
 const npmLatestURL = "https://registry.npmjs.org/@anthropic-ai/claude-code/latest"

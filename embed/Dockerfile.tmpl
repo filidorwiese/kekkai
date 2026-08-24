@@ -2,6 +2,8 @@ FROM {{.DebianImage}}
 
 # Builtin + user apt packages (§5.1). gh is not in Debian repos, so the
 # GitHub CLI apt repo is added first; the keyring file needs no gpg tooling.
+# pip.conf disables Debian's PEP 668 guard image-wide: it protects a
+# long-lived system python, which a disposable sandbox is not (specs/024).
 RUN export DEBIAN_FRONTEND=noninteractive \
  && apt-get update \
  && apt-get install -y --no-install-recommends ca-certificates curl \
@@ -21,6 +23,7 @@ RUN export DEBIAN_FRONTEND=noninteractive \
 {{- end}}
  && apt-get update \
  && apt-get install -y --no-install-recommends{{range .AptPackages}} {{.}}{{end}} \
+ && printf '[global]\nbreak-system-packages = true\n' > /etc/pip.conf \
  && rm -rf /var/lib/apt/lists/*
 
 # Non-root sandbox user (§6.3): baked with the host's uid/gid (specs/018) so
