@@ -73,7 +73,19 @@ RUN nvm install {{.NodeInstallArg}} \
  && nvm alias default "$(nvm current)" \
  && ln -s "$NVM_DIR/versions/node/$(nvm current)" "$NVM_DIR/current"
 
-RUN npm install -g @anthropic-ai/claude-code@{{.ClaudeVersion}}
+# The npm package is a thin wrapper; the native binary arrives via a
+# platform optionalDependency that npm drops SILENTLY on a transient
+# registry failure (exit 0, broken install). `claude --version` execs the
+# native binary, so it passes only when the install is actually functional
+# — a failure here aborts the build instead of baking (and hash-caching) a
+# broken image (specs/023).
+RUN npm install -g @anthropic-ai/claude-code@{{.ClaudeVersion}} \
+ && claude --version \
+ || { echo "kekkai: claude native binary missing after install, retrying once" >&2; \
+      npm install -g @anthropic-ai/claude-code@{{.ClaudeVersion}} \
+   && claude --version; } \
+ || { echo "kekkai: claude native binary failed to install after retry; rerun 'kekkai up' to retry the build" >&2; \
+      exit 1; }
 
 # node/npm/npx/claude reachable from every exec path — docker exec, sh -c,
 # subprocesses — without profile sourcing (§6.3): stable symlinks in
