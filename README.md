@@ -32,7 +32,7 @@ A `.kekkai.yaml` file in the project folder lets you define:
 - **Network**: which outgoing traffic to allow
 - **Secrets**: which sensitive files to hide
 
-Your Claude setup carries over into the sandbox: skills, hooks, sessions - everything in `~/.claude` - so it behaves exactly like your regular Claude Code, just contained.
+Your Claude setup carries over into the sandbox: skills, hooks, sessions - everything in `~/.claude` - so it behaves exactly like your regular Claude Code, just contained. The project is mounted at the same path as on the host, so Claude's per-project memory and sessions are shared between host and sandbox and never bleed into other projects.
 
 ## Demo video
 
@@ -198,3 +198,5 @@ Know the trade-offs you're making:
 - macOS: shared-folder I/O is slower than native Linux binds.
 - macOS: the sandbox can reach Mac services via `host.docker.internal`, including those bound to localhost.
 - macOS: `git.ssh_agent` needs the runtime to forward the agent into its VM (colima: start with `--ssh-agent`).
+- Project paths containing `:` or control characters, the filesystem root, and parents of `/home/kekkai`, `/usr/local/bin` or `/commandhistory` cannot be mirrored and are refused.
+- Upgrading from a version that mounted the project at `/workspace`: Claude state under `~/.claude/projects/-workspace` (and the `/workspace` entry in `~/.claude/.claude.json`) is no longer read by any sandbox; it is left in place and safe to delete. A project started from a symlinked directory gets a new container and history-volume name once (hash of the resolved path).

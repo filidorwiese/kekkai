@@ -35,9 +35,9 @@ RUN (getent group {{.Gid}} >/dev/null || groupadd -g {{.Gid}} kekkai) \
 
 # bash history persists in the /commandhistory volume (§6.3). PROMPT_COMMAND
 # appends per command, so a killed session loses at most the in-flight line.
-RUN mkdir -p /commandhistory /workspace /home/kekkai/.claude \
+RUN mkdir -p /commandhistory /home/kekkai/.claude \
  && touch /commandhistory/.bash_history \
- && chown -R {{.Uid}}:{{.Gid}} /commandhistory /workspace /home/kekkai \
+ && chown -R {{.Uid}}:{{.Gid}} /commandhistory /home/kekkai \
  && printf 'export HISTFILE=/commandhistory/.bash_history\nexport HISTSIZE=10000\nexport HISTFILESIZE=10000\nexport PROMPT_COMMAND='"'"'history -a'"'"'\n' \
       >> /home/kekkai/.bashrc \
  && chown {{.Uid}}:{{.Gid}} /home/kekkai/.bashrc
@@ -119,7 +119,10 @@ RUN chmod 0755 /usr/local/bin/init-firewall.sh /usr/local/bin/kekkai-mpr \
  && chmod 0440 /etc/sudoers.d/kekkai
 
 USER kekkai
-WORKDIR /workspace
+# Neutral fallback only: the project is mounted at its host path and the
+# real cwd is a runtime `-w` on run/exec (specs/026). The path never enters
+# the template, so one image serves every project (§6.1 bake-time rule).
+WORKDIR /home/kekkai
 ENV SHELL=/bin/bash
 # The builtin ANTHROPIC_BASE_URL value (§5.3): CMD starts the capture proxy
 # only when the runtime env still equals it, i.e. the user did not override.

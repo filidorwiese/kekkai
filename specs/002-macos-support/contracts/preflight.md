@@ -8,7 +8,7 @@ One container, read-only binds of every path the real run will bind, plus the ag
 
 ```text
 docker run --rm \
-  -v <PWD>:/kekkai-probe/workspace:ro \
+  -v <PWD>:<PWD>:ro \                      # mirrored destination since specs/026
   -v <home>/.claude:/kekkai-probe/claude:ro \
   [-v <home>/.gitconfig:/kekkai-probe/gitconfig:ro]
   [-v <mount-src-N>:/kekkai-probe/m<N>:ro ...]

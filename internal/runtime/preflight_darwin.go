@@ -41,7 +41,9 @@ var agentHints = map[runtimeIdentity]string{
 
 // preflight runs one throwaway container from the just-ensured image,
 // read-only binding every path the real run will bind, so VM-sharing and
-// agent-socket problems surface before any sandbox work (§7.4).
+// agent-socket problems surface before any sandbox work (§7.4). The project
+// (pwd, already symlink-resolved by Up) is bound at its mirrored destination
+// so path-shape problems surface here too (specs/026 FR-011).
 func preflight(cfg *config.Config, pwd, imageTag string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -49,7 +51,7 @@ func preflight(cfg *config.Config, pwd, imageTag string) error {
 	}
 
 	args := []string{"run", "--rm",
-		"-v", pwd + ":/kekkai-probe/workspace:ro",
+		"-v", pwd + ":" + pwd + ":ro",
 		"-v", filepath.Join(home, ".claude") + ":/kekkai-probe/claude:ro",
 	}
 	if cfg.Git.Enabled {

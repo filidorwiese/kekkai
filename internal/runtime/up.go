@@ -69,7 +69,7 @@ type UpOptions struct {
 // version, builds the image on hash miss, assembles run args and hands the
 // terminal to `docker run --rm -it` (§6, §7).
 func Up(opts UpOptions) (int, error) {
-	pwd, err := os.Getwd()
+	pwd, err := ProjectDir()
 	if err != nil {
 		return 1, err
 	}
@@ -86,6 +86,9 @@ func Up(opts UpOptions) (int, error) {
 		if cfg.Git.SSHAgent && goruntime.GOOS != "darwin" && os.Getenv("SSH_AUTH_SOCK") == "" {
 			errs = append(errs, fmt.Errorf("git.ssh_agent is true but $SSH_AUTH_SOCK is not set on the host"))
 		}
+		// The project path is mirrored into the sandbox (specs/026); paths
+		// that cannot be, join the same one-pass report (§4.4).
+		errs = append(errs, ValidateProjectPath(pwd)...)
 	}
 	if len(errs) == 1 && cfg == nil {
 		return 1, errs[0]
@@ -431,7 +434,8 @@ func aptSignatureHint(repos []config.AptRepo, buildOutput string) string {
 
 // buildRunArgs assembles `docker run` args in the §7.3 order: caps → builtin
 // mounts → git mounts → disk.mounts → secrets shadows → builtin env → user
-// env → firewall env (authoritative) → CLAUDE_ARGS → limits → workdir.
+// env → firewall env (authoritative) → CLAUDE_ARGS → limits → workdir (the
+// mirrored project path, specs/026).
 // claudeVersion gates the sandbox-context injection (§5.3); empty = unknown.
 // The returned cleanup (never nil) releases the staged config placeholder and
 // must run after the container exits.
@@ -451,23 +455,24 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 		"--cap-add", "NET_RAW",
 	}
 
-	// Builtin mounts (§5.2)
-	args = append(args, "-v", pwd+":/workspace")
+	// Builtin mounts (§5.2): the project is mirrored at its host path
+	// (specs/026) so Claude keys per-project state identically on both sides.
+	args = append(args, "-v", pwd+":"+pwd)
 	// Config visibility (§5.2, specs/012): the config — or a comment-only
-	// placeholder when absent — is bound read-only over the rw workspace bind,
+	// placeholder when absent — is bound read-only over the rw project bind,
 	// so the agent can read the active policy but never rewrite the file that
 	// governs its own sandbox (no SYS_ADMIN → no remount, same enforcement as
 	// the .git ro bind). Load already rejected non-regular entries.
 	configPath := filepath.Join(pwd, ".kekkai.yaml")
 	if info, err := os.Stat(configPath); err == nil && info.Mode().IsRegular() {
-		args = append(args, "-v", configPath+":/workspace/.kekkai.yaml:ro")
+		args = append(args, "-v", configPath+":"+configPath+":ro")
 	} else {
 		placeholder, release, err := writeConfigPlaceholder()
 		if err != nil {
 			return nil, cleanup, err
 		}
 		// Docker materializes the mountpoint as an empty file inside the
-		// workspace bind, i.e. on the host. Remove that remnant at exit —
+		// project bind, i.e. on the host. Remove that remnant at exit —
 		// but only an empty regular file, so a real config the user writes
 		// while the sandbox runs is never touched (specs/012).
 		cleanup = func() {
@@ -477,7 +482,7 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 				os.Remove(configPath)
 			}
 		}
-		args = append(args, "-v", placeholder+":/workspace/.kekkai.yaml:ro")
+		args = append(args, "-v", placeholder+":"+configPath+":ro")
 	}
 	claudeDir := filepath.Join(home, ".claude")
 	// Pre-create so docker does not create it root-owned on first run.
@@ -500,7 +505,7 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 		// agent cannot remount it (§5.2).
 		gitDir := filepath.Join(pwd, ".git")
 		if info, err := os.Stat(gitDir); err == nil && info.IsDir() {
-			args = append(args, "-v", gitDir+":/workspace/.git:ro")
+			args = append(args, "-v", gitDir+":"+gitDir+":ro")
 		}
 	}
 	if cfg.Git.SSHAgent {
@@ -539,18 +544,18 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 		args = append(args, "-v", spec)
 	}
 
-	// Secrets shadows (§8): stat-gated on the host before run.
+	// Secrets shadows (§8): stat-gated on the host before run. Host and
+	// container path coincide under the mirrored project path.
 	for _, rel := range cfg.Secrets.Hide {
-		hostPath := filepath.Join(pwd, rel)
-		containerPath := "/workspace/" + strings.TrimPrefix(rel, "/")
-		info, err := os.Stat(hostPath)
+		path := filepath.Join(pwd, rel)
+		info, err := os.Stat(path)
 		switch {
 		case err != nil:
 			fmt.Fprintf(os.Stderr, "warning: secrets.hide path %s does not exist, skipping\n", rel)
 		case info.IsDir():
-			args = append(args, "--tmpfs", containerPath)
+			args = append(args, "--tmpfs", path)
 		default:
-			args = append(args, "-v", "/dev/null:"+containerPath+":ro")
+			args = append(args, "-v", "/dev/null:"+path+":ro")
 		}
 	}
 
@@ -617,7 +622,7 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 		args = append(args, "--memory", cfg.Limits.Memory)
 	}
 
-	args = append(args, "-w", "/workspace", imageTag)
+	args = append(args, "-w", pwd, imageTag)
 	return args, cleanup, nil
 }
 
@@ -627,7 +632,7 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 // (specs/012-readonly-config-mount/contracts/config-mount.md).
 const configPlaceholder = "# no .kekkai.yaml in workspace - kekkai runs on defaults; create one on the host ('kekkai init') to customize\n"
 
-// writeConfigPlaceholder stages the placeholder outside the workspace and
+// writeConfigPlaceholder stages the placeholder outside the project dir and
 // returns its path plus a release func. It lives under the user cache dir,
 // not os.TempDir: a bind source must be visible to the docker daemon, and on
 // macOS only the home directory is shared into the runtime VM by every

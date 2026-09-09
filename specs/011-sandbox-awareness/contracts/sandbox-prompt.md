@@ -38,6 +38,8 @@ now be used in interactive mode, not just --print/-p."
 
 ## Prompt value
 
+> Superseded in part by `specs/026-mirror-host-path/contracts/sandbox-layout.md`: the filesystem line now reads "only the project directory (mounted at the same path as on the host) and explicitly configured mounts are visible", and "in the workspace root" became "in the project root".
+
 - Pinned text: the spec's "Prompt text" section, verbatim (Go constant, FR-007).
 - Optional summary appended after a blank line, only when non-empty:
 

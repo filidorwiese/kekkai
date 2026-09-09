@@ -2,7 +2,6 @@ package runtime
 
 import (
 	"fmt"
-	"os"
 
 	"kekkai/internal/docker"
 )
@@ -10,7 +9,7 @@ import (
 // Down stops and removes the sandbox container for $PWD, resolved by the
 // kekkai.cwd label only. Nothing found is not an error (contracts/cli.md).
 func Down() error {
-	pwd, err := os.Getwd()
+	pwd, err := ProjectDir()
 	if err != nil {
 		return err
 	}

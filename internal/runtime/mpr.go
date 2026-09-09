@@ -24,7 +24,7 @@ import (
 // responses, and renders the transcript (or --raw JSON lines). Observe-only:
 // nothing here touches requests, the proxy, or container state.
 func Mpr(raw bool) (int, error) {
-	pwd, err := os.Getwd()
+	pwd, err := ProjectDir()
 	if err != nil {
 		return 1, err
 	}

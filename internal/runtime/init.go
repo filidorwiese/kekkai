@@ -93,7 +93,7 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #   allow_all: false
 
 # secrets:
-#   # Exact file/dir paths relative to the workspace root (no globs) that the
+#   # Exact file/dir paths relative to the project root (no globs) that the
 #   # agent must not read. Files read empty; directories become empty tmpfs.
 #   hide:
 #     - .env.production
@@ -107,7 +107,7 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 
 // Init writes the starter .kekkai.yaml; errors if a config already exists.
 func Init() error {
-	pwd, err := os.Getwd()
+	pwd, err := ProjectDir()
 	if err != nil {
 		return err
 	}

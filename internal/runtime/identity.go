@@ -1,12 +1,14 @@
 // Package runtime implements the kekkai subcommands.
 //
 // identity.go is the single source of container/volume/image identity (§7.1):
-// every consumer (up/down/shell/ps/prune) derives names and labels from here.
+// every consumer (up/down/shell/exec/traffic/mpr/ps/prune) derives names,
+// labels and the mirrored project path from here.
 package runtime
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -14,6 +16,65 @@ import (
 
 	"kekkai/internal/config"
 )
+
+// ProjectDir is the sole source of the project path (specs/026): the
+// kekkai.cwd label, container/volume names, every bind source and
+// destination, and the run/exec working directory all derive from it.
+// Symlinks are resolved because Claude Code keys per-project state by the
+// kernel cwd (the real path), and mirroring that path is the whole point —
+// os.Getwd alone would return $PWD with symlinks intact.
+func ProjectDir() (string, error) {
+	pwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	real, err := filepath.EvalSymlinks(pwd)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(real), nil
+}
+
+// protectedContainerPaths are kekkai's own in-container locations. A project
+// bound at or above one of them would hide the sandbox user's home (bashrc,
+// nvm, the ~/.claude mountpoint), the claude/firewall/mpr binaries, or the
+// history volume (research R4). Descendants are fine: a nested mount hides
+// nothing.
+var protectedContainerPaths = []string{"/home/kekkai", "/usr/local/bin", "/commandhistory"}
+
+// ValidateProjectPath reports every reason p cannot be mirrored into the
+// sandbox (specs/026 contracts/sandbox-layout.md). Pure string work, no
+// docker: it joins the one-pass §4.4 report in `up`. Ancestor checks are
+// component-wise so /home/kekkai2 is not mistaken for a parent of
+// /home/kekkai. ':' is unrepresentable in `-v src:dst`; control characters
+// would break the line-oriented `docker ps` output ContainersByLabel parses.
+func ValidateProjectPath(p string) []error {
+	var errs []error
+	if p == "/" {
+		errs = append(errs, fmt.Errorf("project path / cannot be mirrored into the sandbox (root directory)"))
+	} else {
+		for _, protected := range protectedContainerPaths {
+			rel, err := filepath.Rel(p, protected)
+			if err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
+				errs = append(errs, fmt.Errorf("project path %s cannot be mirrored into the sandbox: it would overlay %s", p, protected))
+			}
+		}
+	}
+	if hasUnmountableChar(p) {
+		errs = append(errs, fmt.Errorf("project path %s contains ':' or control characters, which the container runtime cannot express as a mount destination; move or rename the project", p))
+	}
+	return errs
+}
+
+// hasUnmountableChar: ':' (the -v separator) or any C0 control byte.
+func hasUnmountableChar(p string) bool {
+	for i := 0; i < len(p); i++ {
+		if p[i] == ':' || p[i] < 0x20 {
+			return true
+		}
+	}
+	return false
+}
 
 // sandboxIdentity returns the uid/gid baked into the sandbox user (specs/018):
 // the host identity when both ids are in the user range (>= 1000), else the

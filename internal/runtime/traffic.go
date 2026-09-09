@@ -23,7 +23,7 @@ import (
 // prefix parsing. Traffic never modifies firewall rules or container state
 // (FR-005).
 func Traffic() (int, error) {
-	pwd, err := os.Getwd()
+	pwd, err := ProjectDir()
 	if err != nil {
 		return 1, err
 	}
@@ -233,11 +233,11 @@ func (w *watcher) renderDNS(p *packet) (string, bool) {
 
 // packet is one dissected tcpdump line.
 type packet struct {
-	ts               string // HH:MM:SS local
-	srcIP, srcPort   string
-	dstIP, dstPort   string
-	proto            string // tcp or udp
-	payload          string // decode text after the destination
+	ts             string // HH:MM:SS local
+	srcIP, srcPort string
+	dstIP, dstPort string
+	proto          string // tcp or udp
+	payload        string // decode text after the destination
 }
 
 // parsePacketLine dissects a `tcpdump -l -n -tt` line:

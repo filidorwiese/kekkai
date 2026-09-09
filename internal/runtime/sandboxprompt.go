@@ -13,14 +13,17 @@ import (
 // older versions accept it in --print mode only.
 const appendPromptMinVersion = "1.0.51"
 
-// sandboxPrompt is the pinned sandbox-awareness text (spec 011, verbatim).
+// sandboxPrompt is the pinned sandbox-awareness text (spec 011, verbatim;
+// filesystem line and "project root" wording per specs/026
+// contracts/sandbox-layout.md).
 // Delivered via KEKKAI_SYSTEM_PROMPT → quoted --append-system-prompt in the
 // image CMD — never inline in the exec call, never a replacing flag.
 const sandboxPrompt = `You are running inside Kekkai, a security sandbox (docs:
 https://github.com/filidorwiese/kekkai). The environment is intentionally
 restricted:
 
-- Filesystem: only the workspace and explicitly configured mounts are visible.
+- Filesystem: only the project directory (mounted at the same path as on the
+  host) and explicitly configured mounts are visible.
   Some files may be shadowed (present but empty) because they contain secrets.
 - Network: outbound traffic is limited to an allowlist. Blocked destinations
   typically fail as connection timeouts or refused connections.
@@ -29,7 +32,7 @@ restricted:
 When a command fails, first consider normal causes. If the failure pattern
 matches a sandbox restriction (unreachable host, missing tool, unexpectedly
 empty file), do not attempt to bypass or disable the sandbox. Instead, tell the
-user exactly what to add to .kekkai.yaml in the workspace root - for example a
+user exactly what to add to .kekkai.yaml in the project root - for example a
 domain under network.allowed_domains, a package under image.apt_packages, or a
 mount under disk.mounts - and mention that changes take effect after restarting
 with ` + "`kekkai up`" + `. Configuration reference:
