@@ -156,11 +156,32 @@ func Up(opts UpOptions) (int, error) {
 // config, update notices, sandbox-context warning) goes through here so
 // the convention cannot diverge.
 func Yellow(f *os.File, msg string) string {
-	if info, err := f.Stat(); err == nil &&
-		info.Mode()&os.ModeCharDevice != 0 && os.Getenv("NO_COLOR") == "" {
-		return "\033[33m" + msg + "\033[0m"
+	return paint(colorEnabled(f), ansiYellow, msg)
+}
+
+// colorEnabled is the one TTY + NO_COLOR decision shared by every colored
+// surface (advisories here, the mpr transcript). Char-device check, not
+// isatty: stdout to /dev/null is the only false positive and it is harmless.
+func colorEnabled(f *os.File) bool {
+	info, err := f.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0 && os.Getenv("NO_COLOR") == ""
+}
+
+// SGR codes used by kekkai output; paint is a no-op when color is off.
+const (
+	ansiRed      = "31"
+	ansiGreen    = "32"
+	ansiYellow   = "33"
+	ansiBlue     = "34"
+	ansiMagenta  = "35"
+	ansiCyanBold = "1;36"
+)
+
+func paint(enabled bool, code, msg string) string {
+	if !enabled {
+		return msg
 	}
-	return msg
+	return "\033[" + code + "m" + msg + "\033[0m"
 }
 
 // warnNoConfig prints the missing-config advisory (contract): one stderr line.
@@ -177,7 +198,7 @@ func warnNoConfig() {
 func ensureImage(cfg *config.Config, verbose bool) (string, string, error) {
 	aptPackages := append(append([]string{}, builtinAptPackages...), cfg.Image.AptPackages...)
 	uid, gid := sandboxIdentity()
-	configHash := ConfigHash(cfg.Image.NodeVersion, aptPackages, cfg.Image.AptRepos, assets.FirewallScript, uid, gid)
+	configHash := ConfigHash(cfg.Image.NodeVersion, aptPackages, cfg.Image.AptRepos, assets.FirewallScript, assets.MprScript, uid, gid)
 
 	version := cfg.Claude.Version
 	if version == "latest" {
@@ -197,7 +218,7 @@ func ensureImage(cfg *config.Config, verbose bool) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	tag := ImageTag(rendered, assets.FirewallScript)
+	tag := ImageTag(rendered, assets.FirewallScript, assets.MprScript)
 	if !docker.ImageExists(tag) {
 		// Fail fast on a nonexistent node_version before the multi-minute
 		// build (§6.1). Best-effort only: runs solely on a build-triggering
@@ -338,8 +359,10 @@ func renderDockerfile(img config.ImageConfig, aptPackages []string, claudeVersio
 		ClaudeVersion  string
 		Uid            int
 		Gid            int
+		MprBaseURL     string
 	}{config.DebianBaseImage, config.NvmVersion, img.NodeInstallArg(),
-		aptPackages, aptRepoRenderData(img.AptRepos), claudeVersion, uid, gid})
+		aptPackages, aptRepoRenderData(img.AptRepos), claudeVersion, uid, gid,
+		config.MprBaseURL})
 	return out.String(), err
 }
 
@@ -353,6 +376,9 @@ func buildImage(tag, renderedDockerfile, configHash string, aptRepos []config.Ap
 		return err
 	}
 	if err := os.WriteFile(filepath.Join(dir, "init-firewall.sh"), []byte(assets.FirewallScript), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(dir, "kekkai-mpr.py"), []byte(assets.MprScript), 0o755); err != nil {
 		return err
 	}
 	labels := map[string]string{LabelConfigHash: configHash}
@@ -539,6 +565,10 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 	// Sandbox awareness (§5.3): marker always; prompt only when the resolved
 	// claude supports --append-system-prompt interactively (specs/011).
 	addEnv("KEKKAI_SANDBOX", "1")
+	// Model-provider capture (§5.3, specs/025): claude talks to the
+	// in-sandbox loopback proxy. Deliberately before user env — a user
+	// ANTHROPIC_BASE_URL wins by last-value and thereby disables capture.
+	addEnv("ANTHROPIC_BASE_URL", config.MprBaseURL)
 	if supportsAppendPrompt(claudeVersion) {
 		addEnv("KEKKAI_SYSTEM_PROMPT", sandboxPromptFor(cfg))
 	} else {

@@ -9,3 +9,6 @@ var DockerfileTmpl string
 
 //go:embed init-firewall.sh
 var FirewallScript string
+
+//go:embed kekkai-mpr.py
+var MprScript string

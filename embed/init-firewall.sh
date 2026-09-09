@@ -30,11 +30,13 @@ EOF
     # group 2 exists — everything is allowed, so everything logs as ALLOW.
     # The NEW taps exclude udp/53: the DNS tap already logs those packets,
     # and nothing terminates rule traversal here (no ACCEPT rules), so they
-    # would be logged twice.
+    # would be logged twice. They also exclude loopback: every claude request
+    # first hops through the in-sandbox mpr proxy (specs/025), which the
+    # lockdown path below never logs either (lo ACCEPT precedes its taps).
     iptables -A OUTPUT -p udp --dport 53 -j NFLOG --nflog-group 1
     iptables -A INPUT -p udp --sport 53 -j NFLOG --nflog-group 1
-    iptables -A OUTPUT -m state --state NEW -p udp ! --dport 53 -j NFLOG --nflog-group 1
-    iptables -A OUTPUT -m state --state NEW ! -p udp -j NFLOG --nflog-group 1
+    iptables -A OUTPUT ! -o lo -m state --state NEW -p udp ! --dport 53 -j NFLOG --nflog-group 1
+    iptables -A OUTPUT ! -o lo -m state --state NEW ! -p udp -j NFLOG --nflog-group 1
     exit 0
 fi
 

@@ -129,6 +129,17 @@ func ContainersByLabel(filter string) ([]Container, error) {
 	return containers, nil
 }
 
+// ContainerEnv returns the container's configured environment as KEY=VALUE
+// lines (`docker inspect`), in definition order — for last-value-wins
+// lookups the caller takes the final match.
+func ContainerEnv(id string) ([]string, error) {
+	out, err := run("inspect", "-f", "{{range .Config.Env}}{{println .}}{{end}}", id)
+	if err != nil {
+		return nil, err
+	}
+	return strings.Split(out, "\n"), nil
+}
+
 // RemoveContainer force-removes (stop + rm) by ID.
 func RemoveContainer(id string) error {
 	_, err := run("rm", "-f", id)

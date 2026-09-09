@@ -26,6 +26,12 @@ const (
 	// version (§4.2). NvmVersion must be a release tag, never master/latest.
 	DebianBaseImage = "debian:trixie"
 	NvmVersion      = "v0.40.5"
+
+	// MprBaseURL is the in-sandbox loopback proxy claude talks to (§5.3,
+	// specs/025): set as builtin env ANTHROPIC_BASE_URL and rendered into
+	// the image as KEKKAI_MPR_URL so the CMD can tell a user override apart.
+	// Code constant, never config: a user env entry overrides it wholesale.
+	MprBaseURL = "http://127.0.0.1:4141"
 )
 
 // ErrNoConfig is Discover's not-found signal. Since the config file became

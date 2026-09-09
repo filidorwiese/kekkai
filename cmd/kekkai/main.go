@@ -5,6 +5,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"io"
 	"os"
 
 	"kekkai/internal/runtime"
@@ -30,6 +31,9 @@ Commands:
               args are passed verbatim; exits with the command's exit code
   traffic     stream egress traffic of the running sandbox for $PWD
               connections labeled ALLOW/BLOCK, DNS queries inline
+  mpr         stream model-provider requests of the running sandbox for $PWD
+              full request and response content, one block per exchange
+              flags: --raw (JSON lines instead of rendered transcript)
   ps          list running kekkai containers
   prune       remove orphan containers + unused kekkai:* images
               flags: --volumes (include history volumes)
@@ -68,6 +72,8 @@ func dispatch(args []string) int {
 		} else {
 			code, err = runtime.Traffic()
 		}
+	case "mpr":
+		code, err = mprCommand(args[1:])
 	case "ps":
 		err = runtime.Ps()
 	case "prune":
@@ -136,6 +142,16 @@ func execCommand(args []string) (int, error) {
 		return 1, fmt.Errorf("usage: kekkai exec [--] <command> [args...]")
 	}
 	return runtime.Exec(args)
+}
+
+func mprCommand(args []string) (int, error) {
+	fs := flag.NewFlagSet("mpr", flag.ContinueOnError)
+	fs.SetOutput(io.Discard) // one usage line, contract-pinned, not flag's
+	raw := fs.Bool("raw", false, "JSON lines instead of rendered transcript")
+	if err := fs.Parse(args); err != nil || len(fs.Args()) > 0 {
+		return 1, fmt.Errorf("usage: kekkai mpr [--raw]")
+	}
+	return runtime.Mpr(*raw)
 }
 
 func pruneCommand(args []string) error {

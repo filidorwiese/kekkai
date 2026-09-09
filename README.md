@@ -67,12 +67,15 @@ kekkai down        # stops and removes the sandbox for this folder
 kekkai shell       # opens bash in the running sandbox
 kekkai exec        # runs a one-off command in the running sandbox
 kekkai traffic     # logs dns lookups and tcp connections being made (labeled ALLOW/BLOCK)
+kekkai mpr         # logs the full content of every request/response between Claude and the model provider
 kekkai ps          # lists running kekkai containers
 kekkai prune       # removes orphans (containers, images)
 kekkai self-update # updates kekkai to the latest release
 kekkai version     # prints version
 ```
-`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder, and starts Claude Code inside it. The config file is optional - without one, kekkai runs on the baked-in defaults, which are intentionally restrictive.
+`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder, and starts Claude Code inside it.
+
+`kekkai traffic` and `kekkai mpr` run in a second terminal and attach to the running sandbox: `traffic` shows *where* the sandbox connects, `mpr` shows *what* Claude sends to and receives from the model provider (system prompt, tools, every message, the reply), one block per exchange, colored on a terminal and plain when piped; `kekkai mpr --raw` gives JSON lines instead. Capture is always on and lives only in sandbox memory: nothing is written anywhere, and detaching leaves nothing behind. Setting `ANTHROPIC_BASE_URL` in `env` points Claude elsewhere and switches capture off. The config file is optional - without one, kekkai runs on the baked-in defaults, which are intentionally restrictive.
 
 ## Configure
 Kekkai works without any config. Run `kekkai up` in a project folder and you get the baked-in defaults: the project folder mounted, egress denied except `api.anthropic.com`, nothing else exposed. That's a usable sandbox for most work, and you should only add a config when it's too restrictive.
@@ -184,6 +187,7 @@ Kekkai protects against a misbehaving agent: prompt injection, malicious depende
 Know the trade-offs you're making:
 
 - Your Claude Code credentials must live inside the sandbox. Also, egress traffic to api.anthropic.com is always allowed. Both are necessary for Claude to function. Claude telemetry is disabled inside the sandbox.
+- `kekkai mpr` sees only traffic that honors `ANTHROPIC_BASE_URL` (the Claude API); provider routes that ignore it are not captured. The captured stream is readable by processes inside the sandbox, i.e. by the agent itself - it is the agent's own outbound data, never your credentials (headers are not captured).
 - Any allowed network destination could be used for exfiltration - allow domains sparingly. DNS lookups are unrestricted, so they're potentially a side channel too.
 - Secrets hiding is an explicit list: only the exact files/directories you name are shadowed. Anything else in mounted folders is readable. Keep secrets out of the project folder where you can.
 - `~/.claude` is shared read-write so sessions persist - a compromised agent could alter hooks or skills you later run outside the sandbox. Review changes there as you would code.

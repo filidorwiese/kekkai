@@ -66,6 +66,9 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #   # values through.
 #   NODE_ENV: development
 #   GH_TOKEN: ${GH_TOKEN}
+#   # Point Claude at another API endpoint; this also switches off the
+#   # built-in request capture (kekkai mpr).
+#   ANTHROPIC_BASE_URL: https://example.invalid
 
 # network:
 #   # Omitted network section = egress firewall on

@@ -70,27 +70,27 @@ func HistoryVolume(pwd string) string {
 	return "kekkai-history-" + shortHash(pwd, 8)
 }
 
-// ImageTag returns kekkai:<sha256(rendered Dockerfile + init-firewall.sh)[:12]>.
-// Only bake-time inputs enter the hash (§6.1).
-func ImageTag(renderedDockerfile, firewallScript string) string {
-	return "kekkai:" + shortHash(renderedDockerfile+firewallScript, 12)
+// ImageTag returns kekkai:<sha256(rendered Dockerfile + init-firewall.sh +
+// kekkai-mpr.py)[:12]>. Only bake-time inputs enter the hash (§6.1).
+func ImageTag(renderedDockerfile, firewallScript, mprScript string) string {
+	return "kekkai:" + shortHash(renderedDockerfile+firewallScript+mprScript, 12)
 }
 
 // ConfigHash is the version-independent bake-input hash stored as the
 // kekkai.config_hash image label. It keys the §6.2 offline fallback only,
 // never builds. Inputs: the platform constants (Debian base, nvm tag), the
-// node_version selector, apt packages, firewall script, sandbox uid/gid,
-// apt repos — the bake inputs minus the claude version. Identity is included
+// node_version selector, apt packages, firewall + mpr scripts, sandbox
+// uid/gid, apt repos — the bake inputs minus the claude version. Identity is included
 // so the fallback never reuses an image baked for a different host user
 // (specs/018); repos so it never reuses one baked for different repos
 // (specs/020). An empty repo list serializes to "" — hashes from before the
 // apt_repos feature stay valid.
-func ConfigHash(nodeVersion string, aptPackages []string, aptRepos []config.AptRepo, firewallScript string, uid, gid int) string {
+func ConfigHash(nodeVersion string, aptPackages []string, aptRepos []config.AptRepo, firewallScript, mprScript string, uid, gid int) string {
 	var repos strings.Builder
 	for _, r := range aptRepos {
 		repos.WriteString("\n" + r.Name + "|" + r.URL + "|" + r.Suite + "|" + r.Components + "|" + r.KeyURL)
 	}
 	return shortHash(config.DebianBaseImage+"\n"+config.NvmVersion+"\n"+nodeVersion+
-		"\n"+strings.Join(aptPackages, " ")+"\n"+firewallScript+
+		"\n"+strings.Join(aptPackages, " ")+"\n"+firewallScript+"\n"+mprScript+
 		"\n"+strconv.Itoa(uid)+":"+strconv.Itoa(gid)+repos.String(), 12)
 }

@@ -11,3 +11,6 @@
 .idea/
 .vscode/
 
+
+# python bytecode (py_compile checks on embed/kekkai-mpr.py)
+__pycache__/

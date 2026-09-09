@@ -109,7 +109,10 @@ ENV PATH=/home/kekkai/.nvm/current/bin:$PATH
 # whitelisted via env_keep scoped to that one command — not SETENV, which
 # would let arbitrary env through.
 COPY init-firewall.sh /usr/local/bin/init-firewall.sh
-RUN chmod 0755 /usr/local/bin/init-firewall.sh \
+# Model-provider capture proxy (specs/025): stdlib python, runs as kekkai on
+# loopback only, one fixed upstream. No sudo, no port published.
+COPY kekkai-mpr.py /usr/local/bin/kekkai-mpr
+RUN chmod 0755 /usr/local/bin/init-firewall.sh /usr/local/bin/kekkai-mpr \
  && { echo 'kekkai ALL=(root) NOPASSWD: /usr/local/bin/init-firewall.sh'; \
       echo 'Defaults!/usr/local/bin/init-firewall.sh env_keep += "ALLOW_ALL ALLOW_GITHUB ALLOWED_DOMAINS ALLOWED_CIDRS"'; \
     } > /etc/sudoers.d/kekkai \
@@ -118,12 +121,22 @@ RUN chmod 0755 /usr/local/bin/init-firewall.sh \
 USER kekkai
 WORKDIR /workspace
 ENV SHELL=/bin/bash
+# The builtin ANTHROPIC_BASE_URL value (§5.3): CMD starts the capture proxy
+# only when the runtime env still equals it, i.e. the user did not override.
+ENV KEKKAI_MPR_URL={{.MprBaseURL}}
 
 # Startup line first: the concrete Node version is only known in-image (nvm
 # resolved the selector at build), and the claude version was rendered at
 # build — so the line stays correct even on the §6.2 offline-fallback image.
-# Then firewall init, which must succeed before claude starts (§7.2).
+# Then firewall init, which must succeed before claude starts (§7.2), then
+# the capture proxy under a restart loop (specs/025): `wait` gates on it
+# listening, so a proxy that cannot start fails `up` instead of letting
+# claude run uncaptured. Skipped entirely when the user set their own
+# ANTHROPIC_BASE_URL (the env differs from the baked KEKKAI_MPR_URL).
+# stty -echo before claude: claude queries the terminal (XTVERSION) before
+# it switches the pty to raw mode, and a fast terminal's reply (tmux) got
+# echoed as literal "^[P>|tmux ..." garbage. Silently skipped without a tty.
 # KEKKAI_SYSTEM_PROMPT expansions are quoted — the multiline sandbox context
 # must arrive byte-for-byte; CLAUDE_ARGS stays unquoted by design (flag
 # string). Empty/unset prompt var → identical command line to pre-011.
-CMD ["/bin/sh", "-c", "echo \"kekkai sandbox: node $(node -v), claude {{.ClaudeVersion}}\" && sudo /usr/local/bin/init-firewall.sh && if [ -n \"$KEKKAI_SYSTEM_PROMPT\" ]; then exec claude $CLAUDE_ARGS --append-system-prompt \"$KEKKAI_SYSTEM_PROMPT\"; else exec claude $CLAUDE_ARGS; fi"]
+CMD ["/bin/sh", "-c", "echo \"kekkai sandbox: node $(node -v), claude {{.ClaudeVersion}}\" && sudo /usr/local/bin/init-firewall.sh && if [ \"$ANTHROPIC_BASE_URL\" = \"$KEKKAI_MPR_URL\" ]; then ( while :; do kekkai-mpr serve; echo '[kekkai] mpr proxy exited, restarting' >&2; sleep 1; done ) & kekkai-mpr wait || exit 1; fi && (stty -echo 2>/dev/null || true) && if [ -n \"$KEKKAI_SYSTEM_PROMPT\" ]; then exec claude $CLAUDE_ARGS --append-system-prompt \"$KEKKAI_SYSTEM_PROMPT\"; else exec claude $CLAUDE_ARGS; fi"]
