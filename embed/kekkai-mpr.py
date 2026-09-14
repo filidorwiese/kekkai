@@ -355,7 +355,7 @@ def serve():
     SEQ = Sequence()
     PUB = Publisher()
     server = Server(LISTEN, Proxy)
-    print("[kekkai] model-provider capture active (kekkai mpr)", flush=True)
+    print("[kekkai] model-provider capture active", flush=True)
     server.serve_forever()
 
 

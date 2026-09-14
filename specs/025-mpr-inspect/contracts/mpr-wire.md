@@ -26,7 +26,7 @@ startup line
 && exec claude … (unchanged)
 ```
 
-`serve` prints `[kekkai] model-provider capture active (kekkai mpr)` once on
+`serve` prints `[kekkai] model-provider capture active` once on
 successful bind. `wait` polls a TCP connect to 127.0.0.1:4141 for up to 5 s;
 on timeout prints `[kekkai] ERROR: mpr proxy failed to start` and exits 1, so
 `up` fails instead of running uncaptured (FR-014). When the user overrode

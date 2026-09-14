@@ -49,7 +49,7 @@ requests are generated from a third terminal with
 | 17 | `down`; `grep -r "<a distinctive prompt string>" ~/.cache/kekkai /tmp 2>/dev/null`; `docker history <image>` | No transcript content on host or in image layers (SC-005) |
 | 18 | Long session (30+ turns) without `mpr` attached; `docker stats` | Proxy RSS flat; nothing accumulates (FR-004, SC-004) |
 | 19 | Time a small `count_tokens` call via `kekkai exec curl` against `http://127.0.0.1:4141` vs `https://api.anthropic.com` (10 runs each) | Median difference < 50 ms (SC-002) |
-| 20 | Regression: fresh `up` output | Startup line, firewall probes, `[kekkai] model-provider capture active (kekkai mpr)`, then claude; `kekkai shell`/`exec`/`traffic` unchanged |
+| 20 | Regression: fresh `up` output | Startup line, firewall probes, `[kekkai] model-provider capture active`, then claude; `kekkai shell`/`exec`/`traffic` unchanged |
 
 ## Cleanup
 
