@@ -218,11 +218,11 @@ At `up`, "latest" is resolved to the concrete current version via the npm regist
 
 ### 7.2 Lifecycle
 
-`docker run --rm -it`; removed on claude exit, SIGINT, SIGTERM (signals forwarded by `internal/docker/exec.go`). Existing container for same `kekkai.cwd` → `up` refuses unless `--force`. CMD: startup version line, then `sudo /usr/local/bin/init-firewall.sh && [capture proxy loop + wait, unless ANTHROPIC_BASE_URL overridden] && stty -echo && exec claude $CLAUDE_ARGS [--append-system-prompt "$KEKKAI_SYSTEM_PROMPT"]` (append only when the var is non-empty, §6.3). A proxy death mid-session is restarted by the loop; claude's in-flight request fails once and retries on its own.
+`docker run --rm -it --init`; removed on claude exit, SIGINT, SIGTERM (signals forwarded by `internal/docker/exec.go`). docker-init (tini) is PID 1: it reaps orphaned processes (e.g. grandchildren of statusline/hook helpers), forwards signals it receives to its child and exits with the child's status. claude is its child and the tty foreground process group, so Ctrl-C and SIGWINCH reach claude directly; `kekkai up` exits with claude's status (128+signal when signal-killed). Existing container for same `kekkai.cwd` → `up` refuses unless `--force`. CMD: startup version line, then `sudo /usr/local/bin/init-firewall.sh && [capture proxy loop + wait, unless ANTHROPIC_BASE_URL overridden] && stty -echo && exec claude $CLAUDE_ARGS [--append-system-prompt "$KEKKAI_SYSTEM_PROMPT"]` (append only when the var is non-empty, §6.3). A proxy death mid-session is restarted by the loop; claude's in-flight request fails once and retries on its own.
 
 ### 7.3 Run args assembly
 
-`--cap-add NET_ADMIN --cap-add NET_RAW` (required by firewall, not configurable) → builtin mounts → git mounts → disk.mounts (missing source: skip+notice if optional, warn otherwise) → secrets shadows (§8) → builtin env → user env → firewall env (last, authoritative) → `CLAUDE_ARGS` → `limits` (`--cpus`, `--memory`) → `-w $PWD` (the mirrored project path). `kekkai shell` and `kekkai exec` pass the same `-w $PWD` to `docker exec`.
+`--rm -it --init` (fixed, not configurable) → `--cap-add NET_ADMIN --cap-add NET_RAW` (required by firewall, not configurable) → builtin mounts → git mounts → disk.mounts (missing source: skip+notice if optional, warn otherwise) → secrets shadows (§8) → builtin env → user env → firewall env (last, authoritative) → `CLAUDE_ARGS` → `limits` (`--cpus`, `--memory`) → `-w $PWD` (the mirrored project path). `kekkai shell` and `kekkai exec` pass the same `-w $PWD` to `docker exec`.
 
 ### 7.4 macOS preflight (darwin only)
 

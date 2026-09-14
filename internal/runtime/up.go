@@ -446,7 +446,13 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 		return nil, cleanup, err
 	}
 
-	args := []string{"run", "--rm", "-it",
+	// --init: claude (node) as PID 1 never reaps the orphaned grandchildren
+	// of statusline/hook helpers, so they pile up as zombies for the whole
+	// session. docker-init (tini) as PID 1 reaps them, forwards SIGTERM and
+	// exits with claude's status; claude stays the tty foreground process so
+	// Ctrl-C and SIGWINCH reach it directly. Run arg, not a bake-time input:
+	// the image hash is unchanged (specs/027).
+	args := []string{"run", "--rm", "-it", "--init",
 		"--name", ContainerName(pwd),
 		"--label", LabelCwd + "=" + pwd,
 		"--label", LabelImageHash + "=" + strings.TrimPrefix(imageTag, "kekkai:"),
