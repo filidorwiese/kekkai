@@ -48,9 +48,17 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v7
+        with:
+          # full history + tags: notes are the feat:/fix: subjects since the previous tag
+          fetch-depth: 0
+
       - uses: actions/download-artifact@v8
         with:
           merge-multiple: true
+
+      - name: Release notes
+        run: scripts/release-notes.sh "${GITHUB_REF_NAME}" "${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" > NOTES.md
 
       - name: Checksums
         run: sha256sum kekkai_*.tar.gz > SHA256SUMS
@@ -62,5 +70,5 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             --repo "${GITHUB_REPOSITORY}" \
             --title "${GITHUB_REF_NAME}" \
-            --generate-notes \
+            --notes-file NOTES.md \
             kekkai_*.tar.gz SHA256SUMS
