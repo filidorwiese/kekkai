@@ -73,9 +73,11 @@ kekkai prune       # removes orphans (containers, images)
 kekkai self-update # updates kekkai to the latest release
 kekkai version     # prints version
 ```
-`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder, and starts Claude Code inside it.
+`kekkai up` applies your `.kekkai.yaml`, locks the sandbox to the current folder, and starts Claude Code inside it. The config file is optional - without one, kekkai runs on the baked-in defaults, which are intentionally restrictive.
 
-`kekkai traffic` and `kekkai mpr` run in a second terminal and attach to the running sandbox: `traffic` shows *where* the sandbox connects, `mpr` shows *what* Claude sends to and receives from the model provider (system prompt, tools, every message, the reply), one block per exchange, colored on a terminal and plain when piped; `kekkai mpr --raw` gives JSON lines instead. Capture is always on and lives only in sandbox memory: nothing is written anywhere, and detaching leaves nothing behind. Setting `ANTHROPIC_BASE_URL` in `env` points Claude elsewhere and switches capture off. The config file is optional - without one, kekkai runs on the baked-in defaults, which are intentionally restrictive.
+Run `kekkai traffic` or `kekkai mpr` in a second terminal to attach to the running sandbox.
+- `traffic` shows *where* the sandbox connects (useful to fine-tune the sandbox egress firewall)
+- `mpr` shows *what* Claude sends to and receives from the model provider (useful to inspect and fine-tune your agent context).
 
 ## Configure
 Kekkai works without any config. Run `kekkai up` in a project folder and you get the baked-in defaults: the project folder mounted, egress denied except `api.anthropic.com`, nothing else exposed. That's a usable sandbox for most work, and you should only add a config when it's too restrictive.
