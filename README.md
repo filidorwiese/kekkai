@@ -82,7 +82,7 @@ Run `kekkai traffic` or `kekkai mpr` in a second terminal to attach to the runni
 ## Configure
 Kekkai works without any config. Run `kekkai up` in a project folder and you get the baked-in defaults: the project folder mounted, egress denied except `api.anthropic.com`, nothing else exposed. That's a usable sandbox for most work, and you should only add a config when it's too restrictive.
 
-To customize the sandbox, run `kekkai init` to generate a commented starter file where everything is commented out. All blocks are optional, uncomment only what you need.
+To customize the sandbox, run `kekkai init` to generate a commented starter file where everything is commented out. All blocks are optional, uncomment only what you need. Remember to restart Kekkai after making changes to the configuration for it to take effect.
 
 The full set of options for reference:
 
