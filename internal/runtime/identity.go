@@ -2,7 +2,8 @@
 //
 // identity.go is the single source of container/volume/image identity (§7.1):
 // every consumer (up/down/shell/exec/traffic/mpr/ps/prune) derives names,
-// labels and the mirrored project path from here.
+// labels, the mirrored project path and the mirrored Claude config dir from
+// here.
 package runtime
 
 import (
@@ -35,35 +36,72 @@ func ProjectDir() (string, error) {
 	return filepath.Clean(real), nil
 }
 
+// ClaudeConfigDir is the sole source of the host Claude config dir
+// (specs/028): $CLAUDE_CONFIG_DIR when set and non-empty, else ~/.claude.
+// Unlike ProjectDir, symlinks are NOT resolved: Claude Code records absolute
+// paths (plugin installs, marketplaces, hook commands) rooted at its own
+// unresolved notion of the config dir, and the mount destination must equal
+// that literal prefix for those paths to resolve inside the sandbox
+// (research R1). A symlinked home would otherwise dangle every stored path.
+func ClaudeConfigDir() (string, error) {
+	if v := os.Getenv("CLAUDE_CONFIG_DIR"); v != "" {
+		return filepath.Abs(filepath.Clean(v))
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Join(home, ".claude"), nil
+}
+
 // protectedContainerPaths are kekkai's own in-container locations. A project
 // bound at or above one of them would hide the sandbox user's home (bashrc,
-// nvm, the ~/.claude mountpoint), the claude/firewall/mpr binaries, or the
+// nvm, the ~/.claude symlink), the claude/firewall/mpr binaries, or the
 // history volume (research R4). Descendants are fine: a nested mount hides
 // nothing.
 var protectedContainerPaths = []string{"/home/kekkai", "/usr/local/bin", "/commandhistory"}
 
-// ValidateProjectPath reports every reason p cannot be mirrored into the
-// sandbox (specs/026 contracts/sandbox-layout.md). Pure string work, no
-// docker: it joins the one-pass §4.4 report in `up`. Ancestor checks are
-// component-wise so /home/kekkai2 is not mistaken for a parent of
-// /home/kekkai. ':' is unrepresentable in `-v src:dst`; control characters
-// would break the line-oriented `docker ps` output ContainersByLabel parses.
+// ValidateProjectPath reports every reason the project path p cannot be
+// mirrored into the sandbox (specs/026 contracts/sandbox-layout.md).
 func ValidateProjectPath(p string) []error {
+	return validateMirrorPath("project path", p, "move or rename the project")
+}
+
+// ValidateClaudeConfigDir applies the same rules to the Claude config dir
+// (specs/028 contracts/sandbox-layout.md).
+func ValidateClaudeConfigDir(p string) []error {
+	return validateMirrorPath("claude config dir", p, "move it or set CLAUDE_CONFIG_DIR")
+}
+
+// validateMirrorPath reports every reason p cannot be mirrored at its own
+// path inside the sandbox; kind labels the messages and remedy closes the
+// unmountable-char one. Pure string work, no docker: it joins the one-pass
+// §4.4 report in `up`. Ancestor checks are component-wise so /home/kekkai2
+// is not mistaken for a parent of /home/kekkai. ':' is unrepresentable in
+// `-v src:dst`; control characters would break the line-oriented `docker ps`
+// output ContainersByLabel parses.
+func validateMirrorPath(kind, p, remedy string) []error {
 	var errs []error
 	if p == "/" {
-		errs = append(errs, fmt.Errorf("project path / cannot be mirrored into the sandbox (root directory)"))
+		errs = append(errs, fmt.Errorf("%s / cannot be mirrored into the sandbox (root directory)", kind))
 	} else {
 		for _, protected := range protectedContainerPaths {
-			rel, err := filepath.Rel(p, protected)
-			if err == nil && rel != ".." && !strings.HasPrefix(rel, "../") {
-				errs = append(errs, fmt.Errorf("project path %s cannot be mirrored into the sandbox: it would overlay %s", p, protected))
+			if isAncestorOrSelf(p, protected) {
+				errs = append(errs, fmt.Errorf("%s %s cannot be mirrored into the sandbox: it would overlay %s", kind, p, protected))
 			}
 		}
 	}
 	if hasUnmountableChar(p) {
-		errs = append(errs, fmt.Errorf("project path %s contains ':' or control characters, which the container runtime cannot express as a mount destination; move or rename the project", p))
+		errs = append(errs, fmt.Errorf("%s %s contains ':' or control characters, which the container runtime cannot express as a mount destination; %s", kind, p, remedy))
 	}
 	return errs
+}
+
+// isAncestorOrSelf reports whether child equals dir or lies beneath it,
+// component-wise (so /a/bc is not under /a/b).
+func isAncestorOrSelf(dir, child string) bool {
+	rel, err := filepath.Rel(dir, child)
+	return err == nil && rel != ".." && !strings.HasPrefix(rel, "../")
 }
 
 // hasUnmountableChar: ':' (the -v separator) or any C0 control byte.

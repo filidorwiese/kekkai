@@ -24,15 +24,15 @@ The whole boundary is declarative and lives with the code. One yaml in the proje
 
 ## What you get
 
-`kekkai up` spins up the latest Claude Code inside a Docker container locked to the current folder, designed so nothing escapes it.
+`kekkai up` starts the latest Claude Code in a locked-down, Docker-based sandbox. It only has access to the current folder and your `~/.claude`, and reaches nothing on the network except the Claude API. Skills, hooks, plugins and sessions carry over between host and sandbox.
 
-A `.kekkai.yaml` file in the project folder lets you define:
+An optional `.kekkai.yaml` in the project folder lets you define:
 
 - **Disk**: which folders to expose
-- **Network**: which outgoing traffic to allow
+- **Network**: which egress traffic to allow
 - **Secrets**: which sensitive files to hide
 
-Your Claude setup carries over into the sandbox: skills, hooks, sessions - everything in `~/.claude` - so it behaves exactly like your regular Claude Code, just contained. The project is mounted at the same path as on the host, so Claude's per-project memory and sessions are shared between host and sandbox and never bleed into other projects.
+Kekkai let's Claude Code run unattended safely (within the [known limitations](#known-limitations)).
 
 ## Demo video
 
@@ -188,17 +188,15 @@ Kekkai protects against a misbehaving agent: prompt injection, malicious depende
 
 Know the trade-offs you're making:
 
-- Your Claude Code credentials must live inside the sandbox. Also, egress traffic to api.anthropic.com is always allowed. Both are necessary for Claude to function. Claude telemetry is disabled inside the sandbox.
-- `kekkai mpr` sees only traffic that honors `ANTHROPIC_BASE_URL` (the Claude API); provider routes that ignore it are not captured. The captured stream is readable by processes inside the sandbox, i.e. by the agent itself - it is the agent's own outbound data, never your credentials (headers are not captured).
-- Any allowed network destination could be used for exfiltration - allow domains sparingly. DNS lookups are unrestricted, so they're potentially a side channel too.
-- Secrets hiding is an explicit list: only the exact files/directories you name are shadowed. Anything else in mounted folders is readable. Keep secrets out of the project folder where you can.
-- `~/.claude` is shared read-write so sessions persist - a compromised agent could alter hooks or skills you later run outside the sandbox. Review changes there as you would code.
-- `git.ssh_agent: true` exposes your SSH agent to the sandbox: the agent can sign, push, and authenticate as you against any allowed network destination. Enable per-project, deliberately.
-- Docker CLI inside the sandbox isn't supported: giving the agent access to the Docker socket would bypass the sandbox entirely.
-- The Docker bridge subnet is always reachable: host services listening on `0.0.0.0` or the bridge IP, and neighbor containers on the same bridge, are exposed to the sandbox.
 - Docker is the boundary: kernel-level container escapes are out of scope.
-- macOS: shared-folder I/O is slower than native Linux binds.
+- Docker CLI inside the sandbox isn't supported: giving the agent access to the Docker socket would bypass the sandbox entirely.
+- Your Claude Code credentials must live inside the sandbox. Also, egress traffic to api.anthropic.com is always allowed. Both are necessary for Claude to function. Claude telemetry is disabled inside the sandbox.
+- Any allowed network destination could be used for exfiltration - allow domains sparingly. DNS lookups are unrestricted, so they're potentially a side channel too.
+- Your Claude config dir (`~/.claude` or `$CLAUDE_CONFIG_DIR`) is shared read-write at its host path so sessions persist - a compromised agent could alter hooks, skills or plugins you later run outside the sandbox. Review changes there as you would code.
+- Secrets hiding is an explicit list: only the exact files/directories you name are shadowed. Anything else in mounted folders is readable. Keep secrets out of the project folder where you can.
+- The Docker bridge subnet is always reachable: host services listening on `0.0.0.0` or the bridge IP, and neighbor containers on the same bridge, are exposed to the sandbox.
+- `git.ssh_agent: true` exposes your SSH agent to the sandbox: the agent can sign, push, and authenticate as you against any allowed network destination. Enable per-project, deliberately.
 - macOS: the sandbox can reach Mac services via `host.docker.internal`, including those bound to localhost.
 - macOS: `git.ssh_agent` needs the runtime to forward the agent into its VM (colima: start with `--ssh-agent`).
-- Project paths containing `:` or control characters, the filesystem root, and parents of `/home/kekkai`, `/usr/local/bin` or `/commandhistory` cannot be mirrored and are refused.
-- Upgrading from a version that mounted the project at `/workspace`: Claude state under `~/.claude/projects/-workspace` (and the `/workspace` entry in `~/.claude/.claude.json`) is no longer read by any sandbox; it is left in place and safe to delete. A project started from a symlinked directory gets a new container and history-volume name once (hash of the resolved path).
+- macOS: shared-folder I/O is slower than native Linux binds.
+- `kekkai mpr` sees only traffic that honors `ANTHROPIC_BASE_URL` (the Claude API); provider routes that ignore it are not captured. The captured stream is readable by processes inside the sandbox, i.e. by the agent itself - it is the agent's own outbound data, never your credentials (headers are not captured).

@@ -5,6 +5,6 @@ package runtime
 import "kekkai/internal/config"
 
 // preflight is darwin-only (§7.4); zero overhead elsewhere.
-func preflight(cfg *config.Config, pwd, imageTag string) error {
+func preflight(cfg *config.Config, pwd, claudeDir, imageTag string) error {
 	return nil
 }

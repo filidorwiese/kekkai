@@ -35,7 +35,7 @@ RUN (getent group {{.Gid}} >/dev/null || groupadd -g {{.Gid}} kekkai) \
 
 # bash history persists in the /commandhistory volume (§6.3). PROMPT_COMMAND
 # appends per command, so a killed session loses at most the in-flight line.
-RUN mkdir -p /commandhistory /home/kekkai/.claude \
+RUN mkdir -p /commandhistory \
  && touch /commandhistory/.bash_history \
  && chown -R {{.Uid}}:{{.Gid}} /commandhistory /home/kekkai \
  && printf 'export HISTFILE=/commandhistory/.bash_history\nexport HISTSIZE=10000\nexport HISTFILESIZE=10000\nexport PROMPT_COMMAND='"'"'history -a'"'"'\n' \
@@ -128,7 +128,14 @@ ENV SHELL=/bin/bash
 # only when the runtime env still equals it, i.e. the user did not override.
 ENV KEKKAI_MPR_URL={{.MprBaseURL}}
 
-# Startup line first: the concrete Node version is only known in-image (nvm
+# Config-dir symlink first (specs/028): the host Claude config dir is
+# mounted at its host path and CLAUDE_CONFIG_DIR points there, so
+# ~/.claude becomes a link to it for shell/doc convenience. Skipped when the
+# mirrored path already is /home/kekkai/.claude (host user named kekkai).
+# Path-free: the value is runtime env, never rendered, so one image serves
+# every user (§6.1). No bake-time mkdir of ~/.claude: ln -s refuses to
+# replace an existing directory.
+# Then the startup line: the concrete Node version is only known in-image (nvm
 # resolved the selector at build), and the claude version was rendered at
 # build — so the line stays correct even on the §6.2 offline-fallback image.
 # Then firewall init, which must succeed before claude starts (§7.2), then
@@ -142,4 +149,4 @@ ENV KEKKAI_MPR_URL={{.MprBaseURL}}
 # KEKKAI_SYSTEM_PROMPT expansions are quoted — the multiline sandbox context
 # must arrive byte-for-byte; CLAUDE_ARGS stays unquoted by design (flag
 # string). Empty/unset prompt var → identical command line to pre-011.
-CMD ["/bin/sh", "-c", "echo \"kekkai sandbox: node $(node -v), claude {{.ClaudeVersion}}\" && sudo /usr/local/bin/init-firewall.sh && if [ \"$ANTHROPIC_BASE_URL\" = \"$KEKKAI_MPR_URL\" ]; then ( while :; do kekkai-mpr serve; echo '[kekkai] mpr proxy exited, restarting' >&2; sleep 1; done ) & kekkai-mpr wait || exit 1; fi && (stty -echo 2>/dev/null || true) && echo && if [ -n \"$KEKKAI_SYSTEM_PROMPT\" ]; then exec claude $CLAUDE_ARGS --append-system-prompt \"$KEKKAI_SYSTEM_PROMPT\"; else exec claude $CLAUDE_ARGS; fi"]
+CMD ["/bin/sh", "-c", "if [ \"$CLAUDE_CONFIG_DIR\" != /home/kekkai/.claude ]; then ln -sfn \"$CLAUDE_CONFIG_DIR\" /home/kekkai/.claude; fi && echo \"kekkai sandbox: node $(node -v), claude {{.ClaudeVersion}}\" && sudo /usr/local/bin/init-firewall.sh && if [ \"$ANTHROPIC_BASE_URL\" = \"$KEKKAI_MPR_URL\" ]; then ( while :; do kekkai-mpr serve; echo '[kekkai] mpr proxy exited, restarting' >&2; sleep 1; done ) & kekkai-mpr wait || exit 1; fi && (stty -echo 2>/dev/null || true) && echo && if [ -n \"$KEKKAI_SYSTEM_PROMPT\" ]; then exec claude $CLAUDE_ARGS --append-system-prompt \"$KEKKAI_SYSTEM_PROMPT\"; else exec claude $CLAUDE_ARGS; fi"]

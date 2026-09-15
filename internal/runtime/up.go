@@ -73,6 +73,10 @@ func Up(opts UpOptions) (int, error) {
 	if err != nil {
 		return 1, err
 	}
+	claudeDir, err := ClaudeConfigDir()
+	if err != nil {
+		return 1, err
+	}
 
 	cfg, errs := config.Load(pwd)
 	if cfg == nil && len(errs) == 1 && errors.Is(errs[0], config.ErrNoConfig) {
@@ -89,6 +93,17 @@ func Up(opts UpOptions) (int, error) {
 		// The project path is mirrored into the sandbox (specs/026); paths
 		// that cannot be, join the same one-pass report (§4.4).
 		errs = append(errs, ValidateProjectPath(pwd)...)
+		// The Claude config dir is mirrored the same way (specs/028): same
+		// path rules, plus no user mount may land on or under it — docker
+		// would accept a descendant silently and hide part of the plugin
+		// cache. Deliberately not in protectedContainerPaths: a project at
+		// $HOME legitimately contains the config dir (research R3).
+		errs = append(errs, ValidateClaudeConfigDir(claudeDir)...)
+		for i, m := range cfg.Disk.Mounts {
+			if !m.Skip && isAncestorOrSelf(claudeDir, m.ContainerPath) {
+				errs = append(errs, fmt.Errorf("disk.mounts[%d]: target %s would shadow the Claude config dir %s", i, m.ContainerPath, claudeDir))
+			}
+		}
 	}
 	if len(errs) == 1 && cfg == nil {
 		return 1, errs[0]
@@ -131,11 +146,11 @@ func Up(opts UpOptions) (int, error) {
 	}
 
 	// darwin capability probe (§7.4); no-op elsewhere.
-	if err := preflight(cfg, pwd, imageTag); err != nil {
+	if err := preflight(cfg, pwd, claudeDir, imageTag); err != nil {
 		return 1, err
 	}
 
-	args, cleanup, err := buildRunArgs(cfg, pwd, imageTag, claudeVersion, opts)
+	args, cleanup, err := buildRunArgs(cfg, pwd, claudeDir, imageTag, claudeVersion, opts)
 	if err != nil {
 		return 1, err
 	}
@@ -439,7 +454,7 @@ func aptSignatureHint(repos []config.AptRepo, buildOutput string) string {
 // claudeVersion gates the sandbox-context injection (§5.3); empty = unknown.
 // The returned cleanup (never nil) releases the staged config placeholder and
 // must run after the container exits.
-func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts UpOptions) ([]string, func(), error) {
+func buildRunArgs(cfg *config.Config, pwd, claudeDir, imageTag, claudeVersion string, opts UpOptions) ([]string, func(), error) {
 	cleanup := func() {}
 	home, err := os.UserHomeDir()
 	if err != nil {
@@ -490,12 +505,16 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 		}
 		args = append(args, "-v", placeholder+":"+configPath+":ro")
 	}
-	claudeDir := filepath.Join(home, ".claude")
-	// Pre-create so docker does not create it root-owned on first run.
+	// The Claude config dir is mirrored at its host path too (specs/028):
+	// Claude Code stores host-absolute paths under it (plugin installs,
+	// marketplaces, hook commands), which only resolve when the dir sits at
+	// the same path inside. /home/kekkai/.claude becomes a symlink to it at
+	// container start (CMD). Pre-create so docker does not create it
+	// root-owned on first run.
 	if err := os.MkdirAll(claudeDir, 0o700); err != nil {
 		return nil, cleanup, err
 	}
-	args = append(args, "-v", claudeDir+":/home/kekkai/.claude")
+	args = append(args, "-v", claudeDir+":"+claudeDir)
 	args = append(args, "-v", HistoryVolume(pwd)+":/commandhistory")
 
 	// Git mounts (§5.2)
@@ -567,7 +586,8 @@ func buildRunArgs(cfg *config.Config, pwd, imageTag, claudeVersion string, opts 
 
 	// Env (§5.3, §7.3): builtin → user → firewall (authoritative) → CLAUDE_ARGS
 	addEnv := func(k, v string) { args = append(args, "-e", k+"="+v) }
-	addEnv("CLAUDE_CONFIG_DIR", "/home/kekkai/.claude")
+	// First so a user env entry can still override (research R6).
+	addEnv("CLAUDE_CONFIG_DIR", claudeDir)
 	addEnv("NODE_OPTIONS", "--max-old-space-size=4096")
 	addEnv("WORKSPACE", filepath.Base(pwd))
 	// No telemetry/error-reporting/auto-update traffic (§5.3); the in-image

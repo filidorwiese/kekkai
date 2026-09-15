@@ -43,8 +43,10 @@ var agentHints = map[runtimeIdentity]string{
 // read-only binding every path the real run will bind, so VM-sharing and
 // agent-socket problems surface before any sandbox work (§7.4). The project
 // (pwd, already symlink-resolved by Up) is bound at its mirrored destination
-// so path-shape problems surface here too (specs/026 FR-011).
-func preflight(cfg *config.Config, pwd, imageTag string) error {
+// so path-shape problems surface here too (specs/026 FR-011). claudeDir is
+// the resolved host config dir the run will bind (specs/028): a relocated
+// dir outside the shared folders is exactly what the probe must catch.
+func preflight(cfg *config.Config, pwd, claudeDir, imageTag string) error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return err
@@ -52,7 +54,7 @@ func preflight(cfg *config.Config, pwd, imageTag string) error {
 
 	args := []string{"run", "--rm",
 		"-v", pwd + ":" + pwd + ":ro",
-		"-v", filepath.Join(home, ".claude") + ":/kekkai-probe/claude:ro",
+		"-v", claudeDir + ":/kekkai-probe/claude:ro",
 	}
 	if cfg.Git.Enabled {
 		gitconfig := filepath.Join(home, ".gitconfig")

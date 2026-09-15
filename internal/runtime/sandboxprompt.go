@@ -14,7 +14,7 @@ import (
 const appendPromptMinVersion = "1.0.51"
 
 // sandboxPrompt is the pinned sandbox-awareness text (spec 011, verbatim;
-// filesystem line and "project root" wording per specs/026
+// "project root" wording per specs/026, filesystem line per specs/028
 // contracts/sandbox-layout.md).
 // Delivered via KEKKAI_SYSTEM_PROMPT → quoted --append-system-prompt in the
 // image CMD — never inline in the exec call, never a replacing flag.
@@ -22,8 +22,9 @@ const sandboxPrompt = `You are running inside Kekkai, a security sandbox (docs:
 https://github.com/filidorwiese/kekkai). The environment is intentionally
 restricted:
 
-- Filesystem: only the project directory (mounted at the same path as on the
-  host) and explicitly configured mounts are visible.
+- Filesystem: only the project directory and your Claude config directory
+  (both mounted at the same path as on the host) plus explicitly configured
+  mounts are visible.
   Some files may be shadowed (present but empty) because they contain secrets.
 - Network: outbound traffic is limited to an allowlist. Blocked destinations
   typically fail as connection timeouts or refused connections.
