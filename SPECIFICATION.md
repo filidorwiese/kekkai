@@ -82,7 +82,7 @@ claude:
 
 git:
   enabled: true                  # true: ~/.gitconfig ro, commits work; false/omitted: .git bound readonly
-  ssh_agent: false               # mounts $SSH_AUTH_SOCK + allowed_signers
+  ssh_agent: true               # mounts $SSH_AUTH_SOCK + allowed_signers
 
 disk:
   mounts:

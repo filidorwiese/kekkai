@@ -125,7 +125,7 @@ git:
   # enables SSH commit signing and push/pull to allowed hosts.
   # Off by default - the agent can then act with all your loaded keys.
   # Requires git.enabled: true.
-  ssh_agent: false
+  ssh_agent: true
 
 env:
   NODE_ENV: development

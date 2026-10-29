@@ -52,7 +52,7 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #   # enables SSH commit signing and push/pull to allowed hosts.
 #   # Off by default - the agent can then act with all your loaded keys.
 #   # Requires git.enabled: true.
-#   ssh_agent: false
+#   ssh_agent: true
 
 # disk:
 #   mounts:
@@ -90,7 +90,7 @@ const starterConfig = `# .kekkai.yaml - kekkai sandbox configuration
 #
 #   # Escape hatch: true disables the egress firewall entirely.
 #   # Must be the ONLY network key when set.
-#   allow_all: false
+#   allow_all: true
 
 # secrets:
 #   # Exact file/dir paths relative to the project root (no globs) that the
