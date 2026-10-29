@@ -43,6 +43,9 @@ var builtinAptPackages = []string{
 	// scripting runtime (specs/024): ad-hoc agent scripting; PyPI egress
 	// stays user opt-in via network.allowed_domains (§5.4 unchanged)
 	"python3", "python3-venv", "python3-pip",
+	// node runtime (specs/029): Node >= 26 links libatomic.so.1, absent from
+	// the Debian base; without it the nvm-installed node cannot start.
+	"libatomic1",
 }
 
 const npmLatestURL = "https://registry.npmjs.org/@anthropic-ai/claude-code/latest"

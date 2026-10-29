@@ -150,8 +150,9 @@ Copy/paste safety: commented example values in the starter (and README example) 
 Baked into the Dockerfile template, user `apt_packages` appends only.
 
 Required — firewall/lifecycle: `sudo`, `iptables`, `ipset`, `iproute2`, `dnsutils`, `curl`, `ca-certificates`, `jq`, `aggregate`, `bash` (nvm dependency and the `kekkai shell` target; present in the Debian base, listed to pin it). Required — subcommands: `tcpdump` (`kekkai traffic`: the NFLOG reader). Required — git over ssh: `openssh-client` (SSH commit signing via `ssh-keygen -Y` and `git@` remotes through the forwarded agent, §5.2). Convenience: `git`, `gh`, `less`, `nano`, `procps`. General tooling: `unzip`, `zip`, `xz-utils`, `zstd`, `bzip2`, `file`, `ripgrep`, `fd-find`, `rsync` — near-universal agent operations (archive extraction/creation, file-type inspection, fast search, bulk copy) that the Debian base (only `tar`+`gzip`) leaves broken; daemon-free, no new network destinations. Scripting runtime: `python3`, `python3-venv`, `python3-pip` — ad-hoc agent scripting, the same near-universal bar (specs/024); daemon-free, and PyPI egress stays user opt-in via `network.allowed_domains` (§5.4 unchanged). No compilers or `python3-dev` — native-extension toolchains remain user-config territory.
+Node runtime: `libatomic1` — Node ≥ 26 (the LTS line since October 2026) links `libatomic.so.1`, which the Debian base does not ship; without it the nvm-installed node cannot start, `nvm current` resolves to `none`, and the image build fails at the claude install step (specs/029). Baked unconditionally like every other builtin.
 
-`jq`/`aggregate` only exercised on the `allow_github` path, `openssh-client` only on the `ssh_agent` path, but all stay baked: the image must be identical regardless of runtime config.
+`jq`/`aggregate` only exercised on the `allow_github` path, `openssh-client` only on the `ssh_agent` path, `libatomic1` only by Node ≥ 26, but all stay baked: the image must be identical regardless of runtime config.
 
 ### 5.2 Mounts
 
